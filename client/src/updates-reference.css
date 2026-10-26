@@ -1,0 +1,145 @@
+.updates-page {
+  padding-top: 36px;
+}
+
+.news-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 60px 40px 28px;
+  border-bottom: 1px solid #e8ddd0;
+}
+
+.news-hero-copy {
+  flex: 0 0 auto;
+}
+
+.news-eyebrow {
+  margin: 0 0 12px;
+  color: #a2672d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.news-hero h1 {
+  margin: 0;
+  color: #3b2a1e;
+  font-family: Lora, Georgia, serif;
+  font-size: clamp(2.7rem, 5vw, 4.6rem);
+  line-height: 1.08;
+}
+
+.news-filters {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.news-search {
+  display: flex;
+  width: min(100%, 340px);
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid #ddd0c0;
+  border-radius: 5px;
+  background: #fffdfa;
+  color: #8f7f70;
+}
+
+.news-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #3b2a1e;
+  font: inherit;
+  font-size: 13px;
+}
+
+.news-filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.news-filter-btn {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #ddd0c0;
+  border-radius: 4px;
+  background: #fffdfa;
+  color: #704214;
+  font: 600 12px Inter, sans-serif;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.news-filter-btn:hover,
+.news-filter-btn.active {
+  border-color: #704214;
+  background: #704214;
+  color: #fff;
+}
+
+.updates-page .updates-grid {
+  margin-top: 28px;
+}
+
+@media (max-width: 900px) {
+  .news-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 24px;
+    padding: 42px 24px 26px;
+  }
+
+  .news-filters {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .news-search {
+    width: 100%;
+  }
+
+  .news-filter-buttons {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .updates-page {
+    padding-top: 24px;
+  }
+
+  .news-hero {
+    gap: 20px;
+    padding: 32px 8px 22px;
+  }
+
+  .news-hero h1 {
+    font-size: clamp(2.4rem, 12vw, 3.5rem);
+  }
+
+  .news-filter-buttons {
+    gap: 6px;
+  }
+
+  .news-filter-btn {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .updates-page .updates-grid {
+    margin-top: 20px;
+  }
+}

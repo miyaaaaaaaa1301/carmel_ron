@@ -1,0 +1,426 @@
+.about-reference {
+  color: #3d3024;
+  background: #fff;
+  font-family: Inter, sans-serif;
+}
+
+.about-reference * {
+  box-sizing: border-box;
+}
+
+.about-reference-container {
+  width: min(1460px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.about-reference-top {
+  overflow: hidden;
+  background: #f9f4ed;
+}
+
+.about-reference-hero {
+  position: relative;
+  display: flex;
+  min-height: 440px;
+  align-items: center;
+  padding: 90px 80px 110px;
+  background: radial-gradient(circle at 82% 35%, rgba(201, 168, 124, 0.35), transparent 34%);
+}
+
+.about-reference-hero-art {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.about-reference-hero-content {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: 680px;
+  text-align: left;
+}
+
+.about-reference-eyebrow {
+  display: block;
+  margin-bottom: 12px;
+  color: #a2672d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.about-reference-hero h1 {
+  margin: 0 0 18px;
+  color: #1a1008;
+  font-family: Lora, Georgia, serif;
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  line-height: 1;
+}
+
+.about-reference-description {
+  max-width: 620px;
+  margin: 0 0 30px;
+  color: #3d3024;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.about-reference-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-radius: 6px;
+  background: #704214;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.about-reference-button:hover {
+  transform: translateY(-2px);
+  background: #5a3510;
+}
+
+.about-reference-aim {
+  padding: 70px 80px;
+  background: #37200b;
+  box-shadow: inset 0 -70px 80px rgba(112, 66, 20, 0.25);
+}
+
+.about-reference-aim-content {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 50px;
+}
+
+.about-reference-aim-content > div,
+.about-reference-aim-content > h3 {
+  flex: 1;
+}
+
+.about-reference-aim .about-reference-eyebrow {
+  color: #c9a87c;
+}
+
+.about-reference-aim h2 {
+  margin: 0 0 14px;
+  color: #fff;
+  font-family: Lora, Georgia, serif;
+  font-size: 48px;
+}
+
+.about-reference-aim p {
+  max-width: 540px;
+  margin: 0;
+  color: #c9a87c;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.about-reference-aim h3 {
+  margin: 0;
+  color: #f5ebe5;
+  font-family: Lora, Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.4;
+}
+
+.about-reference-photo-section {
+  background: #fff;
+}
+
+.about-reference-photo-section img {
+  width: 100%;
+  height: 420px;
+  object-fit: cover;
+}
+
+.about-reference-photo-section p {
+  margin: 0;
+  padding: 24px 20px 50px;
+  color: #8b7355;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.about-reference-officers img {
+  object-position: center 40%;
+}
+
+.about-reference-purposes {
+  padding: 80px 0;
+  background: #f5f0eb;
+}
+
+.about-reference-purposes-heading {
+  margin-bottom: 48px;
+  padding: 0 80px;
+}
+
+.about-reference-purposes-heading .about-reference-eyebrow {
+  margin-bottom: 12px;
+}
+
+.about-reference-purposes-heading h2 {
+  margin: 0 0 8px;
+  color: #1a1008;
+  font-family: Lora, Georgia, serif;
+  font-size: 48px;
+}
+
+.about-reference-divider {
+  display: block;
+  width: 80px;
+  height: 4px;
+  background: #a2672d;
+}
+
+.about-reference-purpose-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+  padding: 0 80px;
+}
+
+.about-reference-purpose-card {
+  display: flex;
+  min-height: 470px;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(26, 16, 8, 0.13);
+}
+
+.about-reference-purpose-image {
+  height: 190px;
+}
+
+.about-reference-purpose-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.about-reference-purpose-accent {
+  height: 4px;
+}
+
+.about-reference-purpose-accent.accent-1 {
+  background: #ef6a0d;
+}
+
+.about-reference-purpose-accent.accent-2 {
+  background: #a2672d;
+}
+
+.about-reference-purpose-accent.accent-3,
+.about-reference-purpose-accent.accent-4 {
+  background: #5b3a23;
+}
+
+.about-reference-purpose-content {
+  padding: 18px 24px 24px;
+}
+
+.about-reference-purpose-content b {
+  display: block;
+  margin-bottom: 12px;
+  color: #262626;
+  font-size: 24px;
+}
+
+.about-reference-purpose-content p {
+  margin: 0;
+  color: #5b3a23;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.about-reference-quote {
+  display: grid;
+  min-height: 500px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 70px;
+}
+
+.about-reference-quote-image {
+  min-height: 500px;
+}
+
+.about-reference-quote-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.about-reference-quote-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 70px;
+  background: #4b2b0e;
+}
+
+.about-reference-quote-mark {
+  position: absolute;
+  top: 36px;
+  left: 68px;
+  color: #ff9f5c;
+  font-family: Georgia, serif;
+  font-size: 100px;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.about-reference-quote-content blockquote {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 20px;
+  color: #fff;
+  font-family: Lora, Georgia, serif;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  line-height: 1.4;
+}
+
+.about-reference-quote-content cite {
+  color: #fff;
+  font-size: 14px;
+  font-style: normal;
+}
+
+.about-reference-quote-line {
+  width: 60px;
+  height: 3px;
+  margin-top: 14px;
+  background: #a2672d;
+}
+
+@media (max-width: 1200px) {
+  .about-reference-purpose-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .about-reference-aim-content {
+    flex-direction: column;
+  }
+
+  .about-reference-aim-content > h3 {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-reference-hero {
+    padding: 70px 20px 80px;
+  }
+
+  .about-reference-aim {
+    padding: 55px 20px 65px;
+  }
+
+  .about-reference-purposes {
+    padding: 60px 0;
+  }
+
+  .about-reference-purposes-heading,
+  .about-reference-purpose-grid {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .about-reference-purpose-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-reference-photo-section img {
+    height: 280px;
+  }
+
+  .about-reference-quote {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .about-reference-quote-image {
+    min-height: 280px;
+  }
+
+  .about-reference-quote-content {
+    min-height: 360px;
+    padding: 50px 30px;
+  }
+
+  .about-reference-quote-mark {
+    left: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-reference-container {
+    width: calc(100% - 24px);
+  }
+
+  .about-reference-hero {
+    min-height: 390px;
+    padding: 56px 18px 64px;
+  }
+
+  .about-reference-description {
+    font-size: 16px;
+  }
+
+  .about-reference-aim {
+    padding: 44px 18px 52px;
+  }
+
+  .about-reference-aim h2 {
+    font-size: 40px;
+  }
+
+  .about-reference-aim p {
+    font-size: 16px;
+  }
+
+  .about-reference-aim h3 {
+    font-size: 28px;
+  }
+
+  .about-reference-purposes-heading h2 {
+    font-size: 38px;
+  }
+
+  .about-reference-purpose-card {
+    min-height: 0;
+  }
+
+  .about-reference-purpose-image {
+    height: 170px;
+  }
+
+  .about-reference-photo-section img {
+    height: 220px;
+  }
+
+  .about-reference-quote-image {
+    min-height: 220px;
+  }
+
+  .about-reference-quote-content {
+    min-height: 330px;
+    padding: 42px 22px;
+  }
+
+  .about-reference-quote-content blockquote {
+    font-size: 26px;
+  }
+}

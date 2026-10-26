@@ -1,0 +1,265 @@
+.contact-reference {
+  background: #faf8f5;
+  color: #3d3024;
+  font-family: Inter, sans-serif;
+}
+
+.contact-reference *,
+.contact-reference *::before,
+.contact-reference *::after {
+  box-sizing: border-box;
+}
+
+.contact-reference-container {
+  width: min(1460px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.contact-reference-hero {
+  background: #faf8f5;
+}
+
+.contact-reference-hero img {
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.contact-reference-section {
+  padding: 80px 0 100px;
+  background: #faf8f5;
+}
+
+.contact-reference-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 64px;
+  padding-right: 80px;
+  padding-left: 80px;
+}
+
+.contact-reference-form-side {
+  max-width: 700px;
+  flex: 1;
+}
+
+.contact-reference-intro {
+  margin-bottom: 32px;
+}
+
+.contact-reference-intro h1 {
+  margin: 0 0 16px;
+  color: #a2672d;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.contact-reference-intro p {
+  margin: 0;
+  color: #3d3024;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.contact-reference-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.contact-reference-row {
+  display: flex;
+  gap: 20px;
+}
+
+.contact-reference-field {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-reference-field label {
+  color: #3d3024;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contact-reference-field input,
+.contact-reference-field select,
+.contact-reference-field textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #faf8f5;
+  color: #3d3024;
+  font: inherit;
+  font-size: 14px;
+}
+
+.contact-reference-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.contact-reference-field input:focus,
+.contact-reference-field select:focus,
+.contact-reference-field textarea:focus {
+  border-color: #c9a87c;
+  outline: 2px solid rgba(201, 168, 124, 0.25);
+}
+
+.contact-reference-submit {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #704214;
+  color: #fff;
+  font: 700 14px Inter, sans-serif;
+  cursor: pointer;
+}
+
+.contact-reference-submit:hover:not(:disabled) {
+  background: #5a3510;
+}
+
+.contact-reference-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.contact-reference-status {
+  margin: 0;
+  color: #704214;
+  font-size: 14px;
+}
+
+.contact-reference-error {
+  color: #a12622;
+}
+
+.contact-reference-info-side {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.contact-reference-info-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 32px;
+  border: 1px solid #c9a87c;
+  border-radius: 16px;
+  background: #f9f4ed;
+}
+
+.contact-reference-info-card h2 {
+  margin: 0;
+  color: #704214;
+  font-family: Lora, Georgia, serif;
+  font-size: 24px;
+  line-height: 1.3;
+}
+
+.contact-reference-info-card p {
+  margin: 0;
+  color: #3d3024;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.contact-reference-card-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #704214;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contact-reference-card-button:hover {
+  background: #5a3510;
+}
+
+@media (max-width: 1100px) {
+  .contact-reference-layout {
+    padding-right: 40px;
+    padding-left: 40px;
+  }
+
+  .contact-reference-info-side {
+    width: 320px;
+  }
+}
+
+@media (max-width: 768px) {
+  .contact-reference-hero img {
+    height: 280px;
+  }
+
+  .contact-reference-section {
+    padding: 55px 0 70px;
+  }
+
+  .contact-reference-layout {
+    flex-direction: column;
+    gap: 36px;
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .contact-reference-form-side,
+  .contact-reference-info-side {
+    width: 100%;
+    max-width: none;
+  }
+
+  .contact-reference-form {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  .contact-reference-container {
+    width: calc(100% - 24px);
+  }
+
+  .contact-reference-hero img {
+    height: 220px;
+  }
+
+  .contact-reference-layout {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .contact-reference-row {
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .contact-reference-form {
+    padding: 20px 16px;
+  }
+
+  .contact-reference-info-card {
+    padding: 24px;
+  }
+}
