@@ -18,6 +18,12 @@ if (!jwtSecret) throw new Error('Set JWT_SECRET before starting in production.')
 const demoAuthEnabled = process.env.DEMO_AUTH_ENABLED === 'true' && process.env.NODE_ENV !== 'production'
 const demoAdminEmail = process.env.DEMO_ADMIN_EMAIL?.toLowerCase() || ''
 const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD || ''
+const offlineDemoAccounts = {
+  'admin@offline': { name: 'Demo Administrator', role: 'ADMIN' as const, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
+  'staff@offline': { name: 'Demo Formator', role: 'FORMATOR' as const, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
+  'user@offline': { name: 'Demo Community User', role: 'USER' as const, phone: '+63 900 000 0000', address: 'Local demonstration account' },
+}
+const offlineDemoPassword = '12345678'
 
 app.disable('x-powered-by')
 app.use(helmet())
@@ -37,13 +43,14 @@ app.use('/api/contact', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standard
 
 const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' as const, path: '/' }
 const visitorChatCookieOptions = { ...cookieOptions, path: '/api/chat' }
-type AuthRequest = Request & { auth?: { id: string; role: 'ADMIN' | 'FORMATOR' | 'USER'; demo?: boolean } }
+type AuthRequest = Request & { auth?: { id: string; role: 'ADMIN' | 'FORMATOR' | 'USER'; demo?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean } }
 function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.carmel_session as string | undefined
   if (!token) return res.status(401).json({ error: 'Sign in is required.' })
   try {
     const claims = jwt.verify(token, jwtSecret) as AuthRequest['auth']
     if (!claims?.id || !claims.role) return res.status(401).json({ error: 'Invalid session.' })
+    if (claims.demo && !demoAuthEnabled) return res.status(401).json({ error: 'Demo sign-in is disabled.' })
     req.auth = claims
     next()
   } catch { return res.status(401).json({ error: 'Your session has expired. Please sign in again.' }) }
@@ -54,11 +61,48 @@ function allowRoles(...roles: Array<'ADMIN' | 'FORMATOR' | 'USER'>) {
     next()
   }
 }
+type StaffPermission = 'canManageUsers' | 'canManageDetails' | 'canManageUpdates'
+async function authorizeStaffPermission(req: AuthRequest, res: Response, permission: StaffPermission) {
+  if (!req.auth) {
+    res.status(401).json({ error: 'Sign in is required.' })
+    return false
+  }
+  if (req.auth.role === 'ADMIN') return true
+  if (req.auth.role !== 'FORMATOR') {
+    res.status(403).json({ error: 'You do not have access to this resource.' })
+    return false
+  }
+  if (req.auth.demo) {
+    if (!demoAuthEnabled) {
+      res.status(401).json({ error: 'Demo sign-in is disabled.' })
+      return false
+    }
+    if (!req.auth[permission]) {
+      res.status(403).json({ error: 'Your administrator has not granted access to this resource.' })
+      return false
+    }
+    return true
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: req.auth.id },
+    select: { role: true, isActive: true, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
+  })
+  if (!user?.isActive || user.role !== 'FORMATOR') {
+    res.status(401).json({ error: 'This account is inactive.' })
+    return false
+  }
+  if (!user[permission]) {
+    res.status(403).json({ error: 'Your administrator has not granted access to this resource.' })
+    return false
+  }
+  return true
+}
 function validate<T extends z.ZodType>(schema: T, input: unknown) {
   const result = schema.safeParse(input)
   return result.success ? { data: result.data, error: null } : { data: null, error: result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) }
 }
 async function audit(userId: string, action: string, entity: string, entityId: string, meta?: Prisma.InputJsonValue) {
+  if (userId.startsWith('local-demo-') && demoAuthEnabled) return
   await prisma.auditLog.create({ data: { userId, action, entity, entityId, meta } })
 }
 const asyncRoute = (handler: (req: AuthRequest, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(handler(req as AuthRequest, res)).catch(next)
@@ -67,7 +111,7 @@ function routeParam(req: Request, name: string): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
 }
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'carmel-in-communion-api' }))
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'carmel-in-communion-api', demoAuthEnabled }))
 
 const memberPrivacyVersion = '2026-10-02'
 const registerSchema = z.object({ name: z.string().trim().min(2).max(100), email: z.email().transform((value) => value.toLowerCase()), phone: z.string().trim().min(7).max(30), address: z.string().trim().min(5).max(300), password: z.string().min(10).max(128), privacyConsent: z.literal(true) })
@@ -85,14 +129,40 @@ app.post('/api/auth/register', asyncRoute(async (req, res) => {
     throw error
   }
 }))
-const loginSchema = z.object({ email: z.email().transform((value) => value.toLowerCase()), password: z.string().min(1).max(128) })
+const offlineDemoEmails = Object.keys(offlineDemoAccounts)
+const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().refine((value) => z.email().safeParse(value).success || offlineDemoEmails.includes(value)),
+  password: z.string().min(1).max(128),
+})
 app.post('/api/auth/login', asyncRoute(async (req, res) => {
   const parsed = validate(loginSchema, req.body)
   if (parsed.error) return res.status(400).json({ error: 'Enter a valid email and password.' })
   const input = parsed.data!
+  if (input.email in offlineDemoAccounts) {
+    const demoAccount = offlineDemoAccounts[input.email as keyof typeof offlineDemoAccounts]
+    const providedPassword = Buffer.from(input.password)
+    const expectedPassword = Buffer.from(offlineDemoPassword)
+    const passwordMatches = providedPassword.length === expectedPassword.length && timingSafeEqual(providedPassword, expectedPassword)
+    if (!demoAuthEnabled || !passwordMatches) return res.status(401).json({ error: 'Email or password is incorrect.' })
+    const id = `local-demo-${demoAccount.role.toLowerCase()}`
+    const claims = {
+      id,
+      role: demoAccount.role,
+      demo: true,
+      ...(demoAccount.role === 'USER' ? {} : {
+        canManageUsers: demoAccount.canManageUsers,
+        canManageDetails: demoAccount.canManageDetails,
+        canManageUpdates: demoAccount.canManageUpdates,
+      }),
+    }
+    const token = jwt.sign(claims, jwtSecret, { expiresIn: '8h' })
+    res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
+    return res.json({ user: { id, email: input.email, ...demoAccount, demo: true } })
+  }
   const user = await prisma.user.findUnique({ where: { email: input.email } })
   if (user) {
     if (!user.isActive || !(await bcrypt.compare(input.password, user.passwordHash))) return res.status(401).json({ error: 'Email or password is incorrect.' })
+    if (user.role === 'ADMIN' || user.role === 'FORMATOR') await audit(user.id, 'LOGIN', 'Session', user.id, { role: user.role })
     const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '8h' })
     res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
     return res.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address, role: user.role, canManageUsers: user.canManageUsers, canManageDetails: user.canManageDetails, canManageUpdates: user.canManageUpdates } })
@@ -108,10 +178,30 @@ app.post('/api/auth/login', asyncRoute(async (req, res) => {
   }
   return res.status(401).json({ error: 'Email or password is incorrect.' })
 }))
-app.post('/api/auth/logout', (_req, res) => { res.clearCookie('carmel_session', cookieOptions); res.status(204).end() })
+app.post('/api/auth/logout', asyncRoute(async (req, res) => {
+  res.clearCookie('carmel_session', cookieOptions)
+  const token = req.cookies?.carmel_session as string | undefined
+  if (token) {
+    try {
+      const claims = jwt.verify(token, jwtSecret) as AuthRequest['auth']
+      if (claims?.id && (claims.role === 'ADMIN' || claims.role === 'FORMATOR') && !claims.demo) {
+        await audit(claims.id, 'LOGOUT', 'Session', claims.id, { role: claims.role })
+      }
+    } catch (error) {
+      if (!(error instanceof jwt.JsonWebTokenError)) throw error
+    }
+  }
+  res.status(204).end()
+}))
 app.get('/api/auth/me', authenticate, asyncRoute(async (req, res) => {
   if (req.auth!.demo && demoAuthEnabled) {
-    return res.json({ user: { id: req.auth!.id, name: 'Local Demo Administrator', email: demoAdminEmail, role: 'ADMIN', isActive: true } })
+    if (req.auth!.id === 'local-demo-admin') {
+      return res.json({ user: { id: req.auth!.id, name: 'Local Demo Administrator', email: demoAdminEmail, role: 'ADMIN', isActive: true } })
+    }
+    const demoEntry = Object.entries(offlineDemoAccounts).find(([, account]) => `local-demo-${account.role.toLowerCase()}` === req.auth!.id)
+    if (!demoEntry) return res.status(401).json({ error: 'Demo account not found.' })
+    const [email, account] = demoEntry
+    return res.json({ user: { id: req.auth!.id, email, ...account, isActive: true, ...req.auth } })
   }
   const user = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { id: true, name: true, email: true, phone: true, address: true, role: true, isActive: true, canManageUsers: true, canManageDetails: true, canManageUpdates: true } })
   if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
@@ -130,7 +220,7 @@ app.patch('/api/auth/me', authenticate, allowRoles('ADMIN', 'FORMATOR', 'USER'),
   const parsed = validate(profileUpdateSchema, req.body)
   if (parsed.error) return res.status(400).json({ error: 'Please check the profile fields.', details: parsed.error })
   const input = parsed.data!
-  const currentUser = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { id: true, passwordHash: true, isActive: true } })
+  const currentUser = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { id: true, name: true, email: true, phone: true, address: true, passwordHash: true, isActive: true } })
   if (!currentUser?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
   if (input.newPassword && !(await bcrypt.compare(input.currentPassword!, currentUser.passwordHash))) return res.status(400).json({ error: 'Your current password is incorrect.' })
   const data: Prisma.UserUpdateInput = { name: input.name, email: input.email }
@@ -139,7 +229,13 @@ app.patch('/api/auth/me', authenticate, allowRoles('ADMIN', 'FORMATOR', 'USER'),
   if (input.newPassword) data.passwordHash = await bcrypt.hash(input.newPassword, 12)
   try {
     const user = await prisma.user.update({ where: { id: currentUser.id }, data, select: { id: true, name: true, email: true, phone: true, address: true, role: true, isActive: true } })
-    await audit(user.id, 'UPDATE_PROFILE', 'User', user.id)
+    await audit(user.id, 'UPDATE_PROFILE', 'User', user.id, {
+      nameChanged: currentUser.name !== user.name,
+      emailChanged: currentUser.email !== user.email,
+      phoneChanged: currentUser.phone !== user.phone,
+      addressChanged: currentUser.address !== user.address,
+      passwordChanged: Boolean(input.newPassword),
+    })
     res.json({ user })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return res.status(409).json({ error: 'An account with this email already exists.' })
@@ -149,7 +245,6 @@ app.patch('/api/auth/me', authenticate, allowRoles('ADMIN', 'FORMATOR', 'USER'),
 
 const donationSchema = z.object({
   amount: z.coerce.number().finite().min(50).max(10000000),
-  frequency: z.enum(['ONE_TIME', 'MONTHLY']).default('ONE_TIME'),
   payment: z.enum(['GCASH', 'MAYA', 'BANK', 'CARD']),
   anonymous: z.boolean().default(true),
   name: z.string().trim().max(100).optional().default(''),
@@ -170,7 +265,7 @@ app.post('/api/donations', asyncRoute(async (req, res) => {
   const donation = await prisma.donation.create({ data: {
     referenceCode,
     amount: new Prisma.Decimal(input.amount),
-    type: input.frequency,
+    type: 'ONE_TIME',
     fund: input.fund,
     paymentMethod: input.payment,
     isAnonymous: input.anonymous,
@@ -369,9 +464,43 @@ const managedUpdatesSchema = z.array(z.object({
   image: z.string().max(3_000_000),
   body: z.string().max(100_000),
 })).max(500)
-app.put('/api/admin/content/:pageKey', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
+const homeHeroImageSchema = z.object({ image: z.string().trim().min(1).max(3_000_000) })
+const homeSectionImageSchema = z.object({
+  section: z.enum(['about', 'carmelife', 'carmelights', 'updates', 'monasteries', 'donations', 'contact']),
+  image: z.string().trim().min(1).max(3_000_000),
+})
+app.put('/api/admin/content/home-hero-image', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  const parsed = validate(homeHeroImageSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Provide a valid homepage image.' })
+  const content = await prisma.pageContent.upsert({
+    where: { pageKey: 'HOME_HERO_IMAGE' },
+    update: { blocks: { image: parsed.data!.image } },
+    create: { pageKey: 'HOME_HERO_IMAGE', blocks: { image: parsed.data!.image } },
+  })
+  await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey: 'HOME_HERO_IMAGE' })
+  res.json({ content })
+}))
+app.put('/api/admin/content/home-section-image', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  const parsed = validate(homeSectionImageSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Provide a valid homepage section image.' })
+  const pageKey = 'HOME_SECTION_IMAGES'
+  const existing = await prisma.pageContent.findUnique({ where: { pageKey } })
+  const currentBlocks = existing?.blocks && typeof existing.blocks === 'object' && !Array.isArray(existing.blocks) ? existing.blocks : {}
+  const blocks = { ...currentBlocks, [parsed.data!.section]: parsed.data!.image }
+  const content = await prisma.pageContent.upsert({
+    where: { pageKey },
+    update: { blocks: blocks as Prisma.InputJsonValue },
+    create: { pageKey, blocks: blocks as Prisma.InputJsonValue },
+  })
+  await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey, section: parsed.data!.section })
+  res.json({ content })
+}))
+app.put('/api/admin/content/:pageKey', authenticate, asyncRoute(async (req, res) => {
   const pageKey = routeParam(req, 'pageKey').toUpperCase()
   if (pageKey !== 'SITE_MANAGED' && pageKey !== 'SITE_UPDATES') return res.status(404).json({ error: 'Editable content section not found.' })
+  if (!await authorizeStaffPermission(req, res, pageKey === 'SITE_MANAGED' ? 'canManageDetails' : 'canManageUpdates')) return
   const parsed = pageKey === 'SITE_MANAGED'
     ? validate(z.object({ blocks: managedSiteContentSchema }), req.body)
     : validate(z.object({ blocks: managedUpdatesSchema }), req.body)
@@ -384,18 +513,6 @@ app.put('/api/admin/content/:pageKey', authenticate, allowRoles('ADMIN'), asyncR
   await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey })
   res.json({ content })
 }))
-const homeHeroImageSchema = z.object({ image: z.string().trim().min(1).max(3_000_000) })
-app.put('/api/admin/content/home-hero-image', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
-  const parsed = validate(homeHeroImageSchema, req.body)
-  if (parsed.error) return res.status(400).json({ error: 'Provide a valid homepage image.' })
-  const content = await prisma.pageContent.upsert({
-    where: { pageKey: 'HOME_HERO_IMAGE' },
-    update: { blocks: { image: parsed.data!.image } },
-    create: { pageKey: 'HOME_HERO_IMAGE', blocks: { image: parsed.data!.image } },
-  })
-  await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey: 'HOME_HERO_IMAGE' })
-  res.json({ content })
-}))
 app.get('/api/faqs', asyncRoute(async (_req, res) => {
   const faqs = await prisma.fAQ.findMany({ where: { isPublished: true }, orderBy: { sortOrder: 'asc' } })
   res.json({ faqs })
@@ -404,6 +521,48 @@ app.get('/api/faqs', asyncRoute(async (_req, res) => {
 app.get('/api/admin/donations', authenticate, allowRoles('ADMIN', 'FORMATOR'), asyncRoute(async (_req, res) => {
   const donations = await prisma.donation.findMany({ orderBy: { createdAt: 'desc' }, include: { beneficiaryMonastery: { select: { name: true } } } })
   res.json({ donations })
+}))
+const manualDonationSchema = z.object({
+  amount: z.coerce.number().finite().min(50).max(10000000),
+  fund: z.string().trim().min(1).max(150),
+  paymentMethod: z.enum(['GCASH', 'MAYA', 'BANK', 'CARD']),
+  type: z.enum(['ONE_TIME', 'MONTHLY']),
+  isAnonymous: z.boolean(),
+  donorName: z.string().trim().max(100).optional(),
+  donorEmail: z.union([z.email(), z.literal('')]).optional(),
+  donorPhone: z.string().trim().max(30).optional(),
+  paymentReference: z.string().trim().max(100).optional(),
+  proof: z.object({
+    fileUrl: z.string().max(7000000).regex(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,[A-Za-z0-9+/]+=*$/),
+    fileName: z.string().trim().min(1).max(255),
+    type: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  }).optional(),
+})
+app.post('/api/admin/donations', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
+  const parsed = validate(manualDonationSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Please check the donation details and proof file.' })
+  const input = parsed.data!
+  if (!input.isAnonymous && !input.donorName) return res.status(400).json({ error: 'Enter the donor name or mark this donation as anonymous.' })
+  const donation = await prisma.donation.create({
+    data: {
+      referenceCode: `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
+      amount: new Prisma.Decimal(input.amount),
+      type: input.type,
+      fund: input.fund,
+      paymentMethod: input.paymentMethod,
+      isManual: true,
+      isAnonymous: input.isAnonymous,
+      donorName: input.isAnonymous ? null : input.donorName || null,
+      donorEmail: input.isAnonymous ? null : input.donorEmail || null,
+      donorPhone: input.isAnonymous ? null : input.donorPhone || null,
+      paymentReference: input.paymentReference || null,
+      status: 'COMPLETED',
+      ...(input.proof ? { files: { create: { fileUrl: input.proof.fileUrl, fileName: input.proof.fileName, type: input.proof.type } } } : {}),
+    },
+    include: { files: true, beneficiaryMonastery: { select: { name: true } } },
+  })
+  await audit(req.auth!.id, 'RECORD_DONATION', 'Donation', donation.id, { referenceCode: donation.referenceCode, amount: input.amount })
+  res.status(201).json({ donation })
 }))
 const managedUserSelect = {
   id: true,
@@ -420,8 +579,15 @@ const managedUserSelect = {
   discernment: { select: { stage: true, monastery: true, updatedAt: true } },
 } as const
 async function authorizeManagedAccounts(req: AuthRequest, res: Response, allowFormator: boolean) {
-  if (!req.auth || req.auth.demo) {
+  if (!req.auth || (req.auth.demo && !demoAuthEnabled)) {
     res.status(403).json({ error: 'A database-backed staff account is required to manage accounts.' })
+    return null
+  }
+  if (req.auth.demo) {
+    if (allowFormator && req.auth.role === 'FORMATOR' && req.auth.canManageUsers) {
+      return { id: req.auth.id, role: req.auth.role, isActive: true, canManageUsers: true }
+    }
+    res.status(403).json({ error: 'You do not have access to manage these accounts.' })
     return null
   }
   const user = await prisma.user.findUnique({
@@ -463,19 +629,25 @@ app.post('/api/admin/users/formators', authenticate, allowRoles('ADMIN'), asyncR
   if (parsed.error) return res.status(400).json({ error: 'Please check the Formator account details.', details: parsed.error })
   const input = parsed.data!
   try {
-    const user = await prisma.user.create({
-      data: {
-        name: input.name,
-        email: input.email,
-        passwordHash: await bcrypt.hash(input.password, 12),
-        role: 'FORMATOR',
-        canManageUsers: input.canManageUsers,
-        canManageDetails: input.canManageDetails,
-        canManageUpdates: input.canManageUpdates,
-      },
-      select: managedUserSelect,
+    const passwordHash = await bcrypt.hash(input.password, 12)
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          role: 'FORMATOR',
+          canManageUsers: input.canManageUsers,
+          canManageDetails: input.canManageDetails,
+          canManageUpdates: input.canManageUpdates,
+        },
+        select: managedUserSelect,
+      })
+      await tx.auditLog.create({
+        data: { userId: actor.id, action: 'CREATE', entity: 'User', entityId: createdUser.id, meta: { role: createdUser.role } },
+      })
+      return createdUser
     })
-    await audit(actor.id, 'CREATE', 'User', user.id, { role: user.role })
     res.status(201).json({ user })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return res.status(409).json({ error: 'An account with this email already exists.' })
@@ -683,8 +855,13 @@ app.post('/api/admin/conversations/:id/messages', authenticate, allowRoles('ADMI
   })
   res.status(201).json({ message })
 }))
-app.get('/api/admin/audit', authenticate, allowRoles('ADMIN'), asyncRoute(async (_req, res) => {
-  const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 300, include: { user: { select: { name: true, email: true } } } })
+app.get('/api/admin/audit', authenticate, allowRoles('ADMIN', 'FORMATOR'), asyncRoute(async (_req, res) => {
+  const logs = await prisma.auditLog.findMany({
+    where: { user: { is: { role: { in: ['ADMIN', 'FORMATOR'] } } } },
+    orderBy: { createdAt: 'desc' },
+    take: 300,
+    include: { user: { select: { name: true, email: true, role: true } } },
+  })
   res.json({ logs })
 }))
 

@@ -112,8 +112,7 @@
 
 .carmelife-page .rounded-life-image img,
 .carmelife-page .wide-life-image img,
-.carmelife-page .life-card img,
-.carmelife-page .arch-life-image img {
+.carmelife-page .life-card img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -166,8 +165,7 @@
   padding: 1.5rem;
 }
 
-.carmelife-page .life-card small,
-.carmelife-page .steps-content > small {
+.carmelife-page .life-card small {
   color: var(--life-gold);
   font-size: 0.68rem;
   font-weight: 700;
@@ -269,58 +267,6 @@
   letter-spacing: 0.14em;
 }
 
-.carmelife-page .practical-section {
-  display: grid;
-  grid-template-columns: 4fr 8fr;
-  gap: 3rem;
-  align-items: start;
-}
-
-.carmelife-page .arch-life-image {
-  max-width: 330px;
-  height: 440px;
-  overflow: hidden;
-  border: 4px solid #fff;
-  border-radius: 10rem 10rem 1rem 1rem;
-  box-shadow: 0 8px 20px #3d2e241a;
-}
-
-.carmelife-page .steps-content {
-  padding-top: 1rem;
-  border-top: 1px solid #c0824633;
-}
-
-.carmelife-page .steps-content ol {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem 2rem;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.carmelife-page .steps-content li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.carmelife-page .steps-content li b {
-  display: flex;
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #c0824666;
-  border-radius: 50%;
-  color: var(--life-gold);
-}
-
 .carmelife-page .life-stories-section {
   padding-top: 1rem;
 }
@@ -331,9 +277,15 @@
   text-align: center;
 }
 
+.carmelife-page .life-stories-more {
+  display: flex;
+  width: fit-content;
+  margin: 2rem auto 0;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 800px) {
-  .carmelife-page .face-of-god,
-  .carmelife-page .practical-section {
+  .carmelife-page .face-of-god {
     grid-template-columns: 1fr;
   }
 
@@ -353,13 +305,6 @@
     height: 360px;
   }
 
-  .carmelife-page .arch-life-image {
-    margin: auto;
-  }
-
-  .carmelife-page .steps-content ol {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 560px) {

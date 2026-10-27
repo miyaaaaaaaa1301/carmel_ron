@@ -109,6 +109,7 @@ model Donation {
   type                  DonationType   @default(ONE_TIME)
   fund                  String
   paymentMethod         PaymentMethod
+  isManual              Boolean        @default(false)
   isAnonymous           Boolean        @default(true)
   donorName             String?
   donorEmail            String?
@@ -132,6 +133,7 @@ model DonationFile {
   donation   Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
   fileUrl    String
   type       String
+  fileName   String?
   createdAt  DateTime @default(now())
 }
 

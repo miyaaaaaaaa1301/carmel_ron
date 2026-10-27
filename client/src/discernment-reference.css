@@ -168,6 +168,81 @@
   line-height: 1.7;
 }
 
+.discernment-guide-practical {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.35fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 64px);
+  width: min(1120px, calc(100% - 56px));
+  margin: 0 auto;
+  padding: 18px 0 72px;
+}
+
+.discernment-guide-practical-image {
+  width: min(100%, 260px);
+  height: 330px;
+  justify-self: center;
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 120px 120px 9px 9px;
+  box-shadow: 0 8px 20px #3d2e241a;
+}
+
+.discernment-guide-practical-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.discernment-guide-practical-content {
+  padding-top: 12px;
+  border-top: 1px solid #c0824633;
+}
+
+.discernment-guide-practical-content > .eyebrow {
+  margin-top: 4px;
+  font-size: 9px;
+}
+
+.discernment-guide-practical-content ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 16px;
+  margin: 13px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.discernment-guide-practical-content li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 5px 2px;
+  color: #554a40;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.discernment-guide-practical-content li b {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  place-items: center;
+  border: 1px solid #c0824666;
+  border-radius: 50%;
+  color: var(--guide-gold);
+  font-size: 9px;
+}
+
+.discernment-guide-practical-content > .button {
+  min-height: 36px;
+  padding-inline: 12px;
+  font-size: 10px;
+}
+
 .discernment-guide-note {
   display: flex;
   align-items: center;
@@ -248,6 +323,23 @@
   .discernment-guide-practice-grid {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .discernment-guide-practical {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    width: calc(100% - 36px);
+    padding: 20px 0 50px;
+  }
+
+  .discernment-guide-practical-image {
+    width: min(260px, 78%);
+    height: 300px;
+  }
+
+  .discernment-guide-practical-content ol {
+    grid-template-columns: 1fr;
+    gap: 3px;
   }
 
   .discernment-guide-stage {
