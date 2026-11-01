@@ -13,12 +13,19 @@ enum Role {
   USER
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  ANONYMOUS
+}
+
 enum DonationType {
   ONE_TIME
   MONTHLY
 }
 
 enum PaymentMethod {
+  QRPH
   GCASH
   MAYA
   BANK
@@ -39,6 +46,12 @@ enum SenderType {
   FORMATOR
 }
 
+enum ContentInteractionType {
+  VIEW
+  BOOKMARK
+  UNBOOKMARK
+}
+
 enum MessageCategory {
   DONATION
   DISCERNER
@@ -56,6 +69,7 @@ model User {
   id           String      @id @default(cuid())
   name         String
   email        String      @unique
+  gender       Gender      @default(ANONYMOUS)
   phone        String      @default("")
   address      String      @default("")
   privacyConsentAt      DateTime?
@@ -71,7 +85,9 @@ model User {
   auditLogs    AuditLog[]
   discernment  Discernment?
   conversations Conversation[] @relation("UserConversations")
+  staffConversations Conversation[] @relation("StaffConversations")
   sentMessages Message[] @relation("UserMessages")
+  contentInteractions ContentInteraction[]
 }
 
 model Discernment {
@@ -109,6 +125,9 @@ model Donation {
   type                  DonationType   @default(ONE_TIME)
   fund                  String
   paymentMethod         PaymentMethod
+  paymongoPaymentIntentId String?       @unique
+  paymongoQrImageUrl      String?
+  paymongoQrExpiresAt     DateTime?
   isManual              Boolean        @default(false)
   isAnonymous           Boolean        @default(true)
   donorName             String?
@@ -139,8 +158,10 @@ model DonationFile {
 
 model Conversation {
   id            String          @id @default(cuid())
-  userId        String?         @unique
+  userId        String?
   user          User?           @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
+  staffRecipientId String?
+  staffRecipient User?           @relation("StaffConversations", fields: [staffRecipientId], references: [id], onDelete: SetNull)
   name          String
   email         String
   subject       String
@@ -151,6 +172,8 @@ model Conversation {
   createdAt     DateTime        @default(now())
 
   @@index([lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([staffRecipientId, lastMessageAt])
 }
 
 model Message {
@@ -185,6 +208,20 @@ model PageContent {
   pageKey   String   @unique
   blocks    Json
   updatedAt DateTime @updatedAt
+}
+
+model ContentInteraction {
+  id         String                  @id @default(cuid())
+  userId     String?
+  user       User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readingId  String
+  eventType  ContentInteractionType
+  dedupeKey  String                  @unique
+  createdAt  DateTime                @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([readingId, eventType, createdAt])
+  @@index([userId, readingId, createdAt])
 }
 
 model FAQ {

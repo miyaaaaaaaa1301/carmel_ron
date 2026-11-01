@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Banknote, Bell, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Clipboard, FileText, HandHeart, Heart, Home, Image, LogIn, LogOut, Mail, MapPin, Maximize2, Menu, MessageCircle, Pencil, Search, ShieldCheck, Smartphone, User, Users, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Banknote, Bell, BookOpen, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clipboard, Database, Download, Eye, EyeOff, FileText, HandHeart, Heart, Home, Image, LogIn, LogOut, Mail, MapPin, Maximize2, Menu, MessageCircle, Pencil, Plus, Search, ShieldCheck, Smartphone, Upload, User, Users, X } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import attractedByTheVeilImage from './assets/attracted-by-the-veil.jpg'
 import vocationHeroImage from '../../assets/image_carmelife/vocation-to-carmel.png'
@@ -14,7 +14,6 @@ import purposeOneImage from '../../assets/images/purpose1.png'
 import purposeTwoImage from '../../assets/images/purpose2.png'
 import purposeThreeImage from '../../assets/images/purpose3.png'
 import purposeFourImage from '../../assets/images/purpose4.png'
-import contactHeroImage from '../../assets/images/landingcarm.png'
 import loginFloralImage from '../../assets/login/auth-floral.png'
 import './Carmel.css'
 import './header-overrides.css'
@@ -24,7 +23,9 @@ import './about-reference.css'
 import './updates-reference.css'
 import './contact-reference.css'
 import './login-reference.css'
+import './donation-payment.css'
 import './discernment-reference.css'
+import './carmelights-reference.css'
 import HomepageReference from './HomepageReference'
 import { homeSectionCards, type HomeSectionKey } from './home-section-cards'
 
@@ -33,7 +34,7 @@ const nav = [['Home', '/'], ['Our Monastery', '/monasteries'], ['Carmelife', '/c
 const managedContentKey = 'carmel-prototype-site-content'
 const managedContentEvent = 'carmel-site-content-updated'
 type ManagedMonastery = { id: string; name: string; city: string; description: string; projectTitle: string; projectDetails: string; image: string }
-type ManagedArticle = { id: string; title: string; author: string; body: string; image: string }
+type ManagedArticle = { id: string; title: string; author: string; body: string; image: string; category?: string }
 type ManagedSiteContent = { homeHeroImage: string; monasteries: ManagedMonastery[]; monasteriesVersion?: number; carmelife: ManagedArticle[]; carmelights: ManagedArticle[] }
 const monasteryCities = ['Angeles', 'Baguio', 'Castillejos', 'Gumaca', 'Infanta', 'Laoag', 'Lipa', 'Lucena', 'Naga', 'Quezon City', 'San Fernando', 'San Pablo', 'Bacolod', 'Cebu', 'Iloilo', 'Cagayan de Oro', 'Davao', 'Jolo', 'Malaybalay', 'Mati', 'Ozamiz', 'Zamboanga', 'Kuching']
 const monasteryAssetByCity: Record<string, string> = {
@@ -131,9 +132,23 @@ const defaultManagedContent: ManagedSiteContent = {
     { id: 'life-ordinary', title: 'The joy of ordinary days', author: 'A sister of Carmel', body: 'Prayer, work, and sisterhood shape the daily rhythm of Carmel. Grace is found in showing up faithfully, together.', image: photo.chapel },
   ],
   carmelights: [
-    { id: 'saint-teresa', title: 'Prayer as friendship', author: 'St. Teresa of Avila', body: 'St. Teresa teaches that prayer grows through a loving friendship with God, patiently nurtured in the midst of everyday life.', image: photo.garden },
-    { id: 'saint-john', title: 'The freedom of love', author: 'St. John of the Cross', body: 'St. John of the Cross points toward a love that loosens our hold on what keeps the heart from becoming freely available to God.', image: photo.chapel },
-    { id: 'saint-therese', title: 'The little way', author: 'St. Thérèse of Lisieux', body: 'St. Thérèse shows how small acts, offered with trust and love, can become a wholehearted response to God.', image: photo.flower },
+    { id: 'saint-john', title: 'Seeking God in stillness', author: 'St. John of the Cross', body: 'John points toward an attentive, inward prayer that makes space for God beyond noise and distraction.', image: photo.chapel, category: 'Prayer' },
+    { id: 'saint-teresa', title: 'Prayer as friendship', author: 'St. Teresa of Avila', body: 'Teresa describes prayer as a loving friendship with God, nurtured through honest and faithful conversation.', image: photo.garden, category: 'Prayer' },
+    { id: 'saint-elizabeth', title: 'The soul as a dwelling place', author: 'St. Elizabeth of the Trinity', body: 'Elizabeth’s spirituality centers on recollection and awareness of God dwelling within the soul.', image: photo.flower, category: 'Prayer' },
+    { id: 'saint-therese-trusting-heart', title: 'Prayer with a trusting heart', author: 'St. Thérèse of Lisieux', body: 'Thérèse presents prayer as a simple, honest turning of the heart toward God, even when words are difficult.', image: photo.garden, category: 'Prayer' },
+    { id: 'saint-therese-mercy', title: 'Confidence in God’s mercy', author: 'St. Thérèse of Lisieux', body: 'Thérèse teaches a childlike confidence that turns toward God in weakness rather than relying on self-sufficiency.', image: photo.chapel, category: 'Trust' },
+    { id: 'saint-therese-childhood', title: 'The way of spiritual childhood', author: 'St. Thérèse of Lisieux', body: 'Her “little way” rests on humble dependence on God rather than achievements or self-reliance.', image: photo.flower, category: 'Trust' },
+    { id: 'saint-teresa-courage', title: 'Courage on the way', author: 'St. Teresa of Avila', body: 'Teresa’s counsel joins trust in God with perseverance: the spiritual journey asks for patience and courage.', image: photo.garden, category: 'Trust' },
+    { id: 'saint-john-detachment', title: 'Freedom through detachment', author: 'St. John of the Cross', body: 'John teaches that clinging less tightly to possessions and passing consolations frees the heart to love God.', image: photo.chapel, category: 'Simplicity' },
+    { id: 'saint-therese-little-way-love', title: 'The little way of love', author: 'St. Thérèse of Lisieux', body: 'Thérèse found a path to holiness in small, hidden acts done with love, especially when no one notices.', image: photo.flower, category: 'Simplicity' },
+    { id: 'saint-therese-ordinary', title: 'Love in ordinary moments', author: 'St. Thérèse of Lisieux', body: 'Daily tasks and small acts of patience become a path of holiness when offered with love.', image: photo.garden, category: 'Simplicity' },
+    { id: 'saint-teresa-humility', title: 'Humility and self-knowledge', author: 'St. Teresa of Avila', body: 'For Teresa, growing in prayer means seeing ourselves truthfully while remaining grounded in God’s mercy.', image: photo.chapel, category: 'Simplicity' },
+    { id: 'saint-therese-church', title: 'Love in the heart of the Church', author: 'St. Thérèse of Lisieux', body: 'Thérèse understood love as the vocation beneath every vocation, expressed in patient care for others.', image: photo.flower, category: 'Love' },
+    { id: 'saint-therese-missionary', title: 'A missionary heart', author: 'St. Thérèse of Lisieux', body: 'Though living a hidden life, Thérèse carried a deep concern for the Church’s mission and those who shared the Gospel.', image: photo.garden, category: 'Love' },
+    { id: 'saint-edith-love', title: 'Giving oneself in love', author: 'St. Teresa Benedicta of the Cross', body: 'Edith Stein’s writings connect personal dignity with self-giving love and a search for truth.', image: photo.chapel, category: 'Love' },
+    { id: 'saint-john-seasons', title: 'Hope in difficult seasons', author: 'St. John of the Cross', body: 'John’s teaching on the dark night speaks of painful seasons as a mystery of purification, not abandonment by God.', image: photo.flower, category: 'The Cross' },
+    { id: 'saint-edith-suffering', title: 'Faithfulness in suffering', author: 'St. Teresa Benedicta of the Cross', body: 'Edith Stein’s witness holds suffering within a larger commitment to love, solidarity, and the mystery of the Cross.', image: photo.chapel, category: 'The Cross' },
+    { id: 'saint-therese-trials', title: 'Trust through trials', author: 'St. Thérèse of Lisieux', body: 'Thérèse’s letters and later years witness to holding on to trust and love amid spiritual and physical suffering.', image: photo.garden, category: 'The Cross' },
   ],
 }
 function readManagedContent(): ManagedSiteContent {
@@ -210,7 +225,11 @@ const money = (n: number) => new Intl.NumberFormat('en-PH', { style: 'currency',
 const memberSessionKey = 'carmel-member-session'
 const memberSessionUpdatedEvent = 'carmel-member-session-updated'
 const directThreadsUpdatedEvent = 'carmel-direct-threads-updated'
-type MemberAccount = { id: string; name: string; email: string; phone?: string; address?: string; role: 'USER'; prototype?: boolean }
+type MemberGender = 'MALE' | 'FEMALE' | 'ANONYMOUS'
+type MemberAccount = { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: 'USER'; prototype?: boolean }
+function parseMemberGender(value: string): MemberGender {
+  return value === 'MALE' || value === 'FEMALE' ? value : 'ANONYMOUS'
+}
 type MemberDonation = { referenceCode: string; amount: number; paymentMethod: string; status: string; createdAt: string; fund: string }
 type DiscernmentStage = 'EXPLORING' | 'PRAYING_AND_LEARNING' | 'READY_TO_VISIT' | 'IN_CONVERSATION'
 type MemberDiscernment = { monastery: string; stage: DiscernmentStage; note: string; updatedAt?: string }
@@ -238,6 +257,8 @@ function saveMemberSession(account: MemberAccount | null) {
 function memberDonationKey(email: string) { return `carmel-member-donations:${email.toLowerCase()}` }
 function memberFavoriteKey(email: string) { return `carmel-member-favorites:${email.toLowerCase()}` }
 function memberDiscernmentKey(email: string) { return `carmel-member-discernment:${email.toLowerCase()}` }
+function createLocalId(prefix: string) { return `${prefix}-${crypto.randomUUID()}` }
+function currentIsoTimestamp() { return new Date().toISOString() }
 function moveMemberData(oldEmail: string, newEmail: string) {
   if (oldEmail.toLowerCase() === newEmail.toLowerCase()) return
   const entries = [[memberDonationKey(oldEmail), memberDonationKey(newEmail)], [memberFavoriteKey(oldEmail), memberFavoriteKey(newEmail)], [memberDiscernmentKey(oldEmail), memberDiscernmentKey(newEmail)]]
@@ -553,18 +574,52 @@ function updateDateInputValue(value: string) {
   const day = String(parsed.getDate()).padStart(2, '0')
   return `${parsed.getFullYear()}-${month}-${day}`
 }
-const defaultSiteUpdates: SiteUpdate[] = [{ id: 'assembly-2026', title: '14th General Assembly', date: 'September 24, 2026', category: 'Federation events', image: photo.garden, body: 'The Federation gathered in communion for its 14th General Assembly at Mere Monique Home in La Paz, Iloilo City. Sisters shared prayer, listened to one another, and renewed the mission entrusted to every Carmel.' }, { id: 'renewal-2026', title: 'A season of prayer and renewal', date: 'September 12, 2026', category: 'Reflections', image: photo.flower, body: 'Across our monasteries, a season of prayer and renewal has invited each community to return to the quiet center of its vocation. In the ordinary rhythm of work and worship, grace continues to make a home.' }, { id: 'mission-2026', title: 'Remembering our shared mission', date: 'August 30, 2026', category: 'Community life', image: photo.chapel, body: 'We remember the shared mission that joins every Carmel: to seek God together, to hold the Church in prayer, and to make the love of Christ visible through a hidden life.' }]
+const defaultSiteUpdates: SiteUpdate[] = [
+  { id: 'jaro-centenary', title: 'Jaro Carmel Celebrates 100 Years of Carmelite Presence in the Philippines', date: '2026-10-01', category: 'Anniversaries', image: '/assets/updates-reference/jaro-centenary.jpg', body: 'Jaro Carmel celebrated her 100 years of Foundation Anniversary.' },
+  { id: 'papal-address', title: 'Address of Pope Francis to the Superiors and Delegates of the Carmelite Nuns', date: '2026-09-15', category: 'Meeting', image: '/assets/updates-reference/papal-address.jpg', body: 'Pope Francis delivered his address to the Superiors and Delegates of the Discalced Carmelite Nuns.' },
+  { id: 'cebu-anniversary', title: 'Address of Pope Francis to the Superiors and Delegates of the Carmelite Nuns', date: '2026-09-01', category: 'Anniversaries', image: '/assets/updates-reference/cebu-anniversary.jpg', body: 'Cebu Carmel celebrates its 75th Foundation Anniversary.' },
+  { id: 'assumpta-bacay', title: 'Mo. Assumpta Bacay, OCD of Angeles Carmel dies at 91', date: '2026-08-18', category: 'Anniversaries', image: '/assets/updates-reference/assumpta-bacay.jpg', body: 'Mo. Assumpta of the Holy Rosary, OCD (Bacay), the lone surviving foundress of Angeles Carmel, Pampanga died at the age of 91.' },
+  { id: 'cecile-pabilona', title: 'Sr. Cecile Pabilona OCD of Jaro Carmel dies at the age of 84', date: '2026-08-03', category: 'Anniversaries', image: '/assets/updates-reference/cecile-pabilona.jpg', body: 'Sr. Mary Cecile of the Holy Trinity, OCD (Pabilona), of Jaro Carmel, died at the age of 87.' },
+  { id: 'khristel-jubilee', title: 'Sr. Khristel of Baguio Carmel celebrates 25 years of consecrated life', date: '2026-07-16', category: 'Anniversaries', image: '/assets/updates-reference/khristel-jubilee.jpg', body: 'Sr. Marie Therese Eleanor of Our Father in heaven celebrated her Silver Jubilee of Religious Life.' },
+]
 const prototypeUpdatesKey = 'carmel-prototype-updates'
-function readSiteUpdates(): SiteUpdate[] { try { const stored = JSON.parse(localStorage.getItem(prototypeUpdatesKey) || 'null') as SiteUpdate[] | null; return stored?.length ? stored : defaultSiteUpdates } catch { return defaultSiteUpdates } }
-async function fetchSiteUpdates(): Promise<SiteUpdate[] | null> {
+const legacySiteUpdates: SiteUpdate[] = [
+  { id: 'assembly-2026', title: '14th General Assembly', date: 'September 24, 2026', category: 'Federation events', image: photo.garden, body: 'The Federation gathered in communion for its 14th General Assembly at Mere Monique Home in La Paz, Iloilo City. Sisters shared prayer, listened to one another, and renewed the mission entrusted to every Carmel.' },
+  { id: 'renewal-2026', title: 'A season of prayer and renewal', date: 'September 12, 2026', category: 'Reflections', image: photo.flower, body: 'Across our monasteries, a season of prayer and renewal has invited each community to return to the quiet center of its vocation. In the ordinary rhythm of work and worship, grace continues to make a home.' },
+  { id: 'mission-2026', title: 'Remembering our shared mission', date: 'August 30, 2026', category: 'Community life', image: photo.chapel, body: 'We remember the shared mission that joins every Carmel: to seek God together, to hold the Church in prayer, and to make the love of Christ visible through a hidden life.' },
+]
+function isLegacySeededUpdates(updates: SiteUpdate[]) {
+  return updates.length > 0 && updates.length <= legacySiteUpdates.length && updates.every((update) => {
+    const seed = legacySiteUpdates.find((item) => item.id === update.id)
+    return seed && seed.title === update.title && seed.date === update.date && seed.category === update.category && seed.image === update.image && seed.body === update.body
+  })
+}
+function readSiteUpdates(): SiteUpdate[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(prototypeUpdatesKey) || 'null') as SiteUpdate[] | null
+    if (!stored?.length) return defaultSiteUpdates
+    if (isLegacySeededUpdates(stored)) {
+      localStorage.setItem(prototypeUpdatesKey, JSON.stringify(defaultSiteUpdates))
+      return defaultSiteUpdates
+    }
+    return stored
+  } catch { return defaultSiteUpdates }
+}
+async function fetchSiteUpdates(migrateLegacy = false): Promise<SiteUpdate[] | null> {
   const response = await fetch('/api/content/SITE_UPDATES')
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.error || 'Saved updates could not be loaded.')
   const updates = result.content?.blocks
   if (!Array.isArray(updates)) throw new Error('Saved updates have an invalid format.')
-  localStorage.setItem(prototypeUpdatesKey, JSON.stringify(updates))
-  return updates as SiteUpdate[]
+  const savedUpdates = updates as SiteUpdate[]
+  if (isLegacySeededUpdates(savedUpdates)) {
+    if (migrateLegacy) return persistSiteUpdates(defaultSiteUpdates)
+    localStorage.setItem(prototypeUpdatesKey, JSON.stringify(defaultSiteUpdates))
+    return defaultSiteUpdates
+  }
+  localStorage.setItem(prototypeUpdatesKey, JSON.stringify(savedUpdates))
+  return savedUpdates
 }
 async function persistSiteUpdates(updates: SiteUpdate[]): Promise<SiteUpdate[]> {
   const response = await fetch('/api/admin/content/SITE_UPDATES', {
@@ -598,21 +653,26 @@ function LegacyStoryPage({ kind }: { kind: 'life' | 'stories' | 'updates' }) {
     return () => { active = false; window.removeEventListener('storage', refresh); window.removeEventListener('carmel-updates-updated', refresh) }
   }, [])
   if (kind === 'updates') {
-    const updateFilters = ['All Updates', 'Anniversaries', 'Official Letters']
+    const updateFilters = ['All Updates', 'Anniversaries', 'Meeting']
     const visibleUpdates = updates.filter((update) => (category === 'All Updates' || update.category.toLowerCase() === category.toLowerCase()) && `${update.title} ${update.category} ${update.body}`.toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
     const selectedUpdate = updates.find((update) => update.title === selectedArticle)
     return <section className="content-page section-wrap updates-page">
       <header className="news-hero">
-        <div className="news-hero-copy"><p className="news-eyebrow">Carmels in Communion</p><h1>News and Updates</h1></div>
-        <div className="news-filters">
-          <label className="news-search"><Search size={17} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search..." aria-label="Search news" /></label>
-          <div className="news-filter-buttons" aria-label="Filter updates by category">
-            {updateFilters.map((filter) => <button type="button" className={`news-filter-btn ${category === filter ? 'active' : ''}`} aria-pressed={category === filter} onClick={() => setCategory(filter)} key={filter}>{filter}</button>)}
-          </div>
-        </div>
+        <div className="news-hero-copy"><p className="news-eyebrow">CARMELS IN COMMUNION</p><h1>News &amp; <em>Updates</em></h1><p className="news-description">Gatherings and moments from the Philippine Federation of Discalced Carmelite<br className="news-description-break" /> Nuns.</p></div>
       </header>
-      {loadError && <p className="form-error" role="alert">{loadError}</p>}
-      {visibleUpdates.length ? <div className="updates-grid">{visibleUpdates.map((update) => <article className="update-post" key={update.id}>{update.image ? <img src={update.image} alt="Carmelite community life" /> : <div className="update-no-image"><HandHeart size={30} /><span>Carmels in<br />Communion</span></div>}<div className="update-post-body"><div className="update-post-meta"><span>{update.category}</span><time dateTime={new Date(update.date).toISOString()}>{update.date}</time></div><h2>{update.title}</h2><p>{update.body}</p><button className="button button-outline" onClick={() => setSelectedArticle(update.title)}>View more <ArrowRight size={15} /></button></div></article>)}</div> : <div className="updates-empty"><Search size={25} /><h2>No updates found</h2><p>Try a different search or category.</p></div>}
+      <div className="news-controls">
+        <label className="news-search"><Search size={17} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search updates" aria-label="Search updates" /></label>
+        <div className="news-filter-buttons" aria-label="Filter updates by category">
+          {updateFilters.map((filter) => <button type="button" className={`news-filter-btn ${category === filter ? 'active' : ''}`} aria-pressed={category === filter} onClick={() => setCategory(filter)} key={filter}>{filter}</button>)}
+        </div>
+      </div>
+      {visibleUpdates.length ? <div className="updates-grid">{visibleUpdates.map((update) => {
+        const date = new Date(`${update.date}T12:00:00`)
+        const dateTime = Number.isNaN(date.getTime()) ? update.date : date.toISOString().slice(0, 10)
+        const displayDate = Number.isNaN(date.getTime()) ? update.date : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        return <article className="update-post" key={update.id}>{update.image ? <img src={update.image} alt="" /> : <div className="update-no-image"><HandHeart size={30} /><span>Carmels in<br />Communion</span></div>}<div className="update-post-body"><h2>{update.title}</h2><p>{update.body}</p><div className="update-post-footer"><button type="button" className="update-read-link" onClick={() => setSelectedArticle(update.title)}>{update.id === 'papal-address' ? 'View more' : 'View update'} <ArrowRight size={15} /></button><time dateTime={dateTime}><CalendarDays size={13} />{displayDate}</time></div></div></article>
+      })}</div> : <div className="updates-empty"><Search size={25} /><h2>No updates found</h2><p>Try a different search or category.</p></div>}
+      {loadError && <p className="updates-load-status" role="status">Live updates could not be reached. Showing this device’s saved updates instead. <span>{loadError}</span></p>}
       {selectedUpdate && <div className="story-modal-backdrop" role="presentation" onClick={() => setSelectedArticle(null)}><article className="story-modal" role="dialog" aria-modal="true" aria-labelledby="story-modal-title" onClick={(event) => event.stopPropagation()}><button className="story-modal-close" onClick={() => setSelectedArticle(null)} aria-label="Close update"><X size={20} /></button>{selectedUpdate.image ? <img src={selectedUpdate.image} alt="Carmelite community life" /> : <div className="story-modal-no-image"><HandHeart size={34} /></div>}<div className="story-modal-body"><span className="eyebrow">{selectedUpdate.category.toUpperCase()} · {selectedUpdate.date}</span><h2 id="story-modal-title">{selectedUpdate.title}</h2><p>{selectedUpdate.body}</p><p>In the quiet rhythm of community life, every gathering becomes an invitation to listen, to give thanks, and to walk together in hope.</p><button className="button button-dark" onClick={() => setSelectedArticle(null)}>Close update</button></div></article></div>}
     </section>
   }
@@ -789,23 +849,99 @@ function DiscernmentGuidePage() {
 
 function StoryPage({ kind }: { kind: 'life' | 'stories' | 'updates' }) {
   const content = useManagedContent()
+  const location = useLocation()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [fullView, setFullView] = useState(false)
+  const [teachingQuery, setTeachingQuery] = useState('')
+  const [teachingCategory, setTeachingCategory] = useState('All')
   const member = readMemberSession()
   const navigate = useNavigate()
   const [favorites, setFavorites] = useState<string[]>(() => member ? readMemberFavorites(member.email) : [])
-  if (kind === 'updates') return <LegacyStoryPage kind={kind} />
   const isLife = kind === 'life'
   const articles = isLife ? content.carmelife : content.carmelights
   const selected = articles.find((article) => article.id === selectedId)
   const desc = isLife ? 'Vocation stories and glimpses of a contemplative life rooted in prayer and sisterhood.' : 'The call of God is an intimate experience. All Carmelite nuns have a unique story of how God called us by name, how we heard His voice and discerned His call, how we answered "YES," and how we embraced the call to a life of a profound, radical love in Carmel.'
+  useEffect(() => {
+    if (kind === 'updates') return
+    const readingId = new URLSearchParams(location.search).get('reading')
+    if (readingId && articles.some((article) => article.id === readingId)) {
+      setSelectedId(readingId)
+      setFullView(false)
+    }
+  }, [articles, kind, location.search])
+  useEffect(() => {
+    if (isLife || kind === 'updates' || !selectedId) return
+    void fetch('/api/content/interactions', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ readingId: selectedId, type: 'VIEW' }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error((await response.json()).error || 'The reading view could not be recorded.')
+    }).catch((error: unknown) => console.error('Unable to record Carmelights view.', error))
+  }, [isLife, kind, selectedId])
+  if (kind === 'updates') return <LegacyStoryPage kind={kind} />
   function toggleFavorite(id: string) {
     if (!member) { navigate('/account/login'); return }
     const next = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id]
     setFavorites(next)
     localStorage.setItem(memberFavoriteKey(member.email), JSON.stringify(next))
+    void fetch('/api/content/interactions', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ readingId: id, type: next.includes(id) ? 'BOOKMARK' : 'UNBOOKMARK' }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error((await response.json()).error || 'The favorite activity could not be recorded.')
+    }).catch((error: unknown) => console.error('Unable to record Carmelights bookmark.', error))
   }
   function closeStory() { setSelectedId(null); setFullView(false) }
+  if (!isLife) {
+    const categories = ['All', 'Prayer', 'Trust', 'Love', 'Simplicity', 'The Cross']
+    const popularTeachings = [
+      { id: 'saint-john', views: 3 },
+      { id: 'saint-teresa', views: 1 },
+    ].map(({ id, views }) => ({ article: articles.find((article) => article.id === id), views })).filter((item) => item.article)
+    const visibleTeachings = articles.filter((article) => {
+      const matchesCategory = teachingCategory === 'All' || (article.category || 'Prayer') === teachingCategory
+      const searchableText = `${article.title} ${article.author} ${article.body} ${article.category || ''}`.toLowerCase()
+      return matchesCategory && searchableText.includes(teachingQuery.trim().toLowerCase())
+    })
+    return <section className="carmelights-page section-wrap">
+      <header className="carmelights-heading">
+        <h1>Teachings of <em>Carmel</em></h1>
+        <p className="page-lead">{desc}</p>
+        <Link className="button button-outline carmelights-discernment" to="/discernment">Explore discernment <ArrowRight size={15} /></Link>
+      </header>
+      <section className="carmelights-most-viewed" aria-labelledby="most-viewed-title">
+        <h2 id="most-viewed-title">Most viewed teachings</h2>
+        <div className="carmelights-popular-list">{popularTeachings.map(({ article, views }) => article && <button type="button" className="carmelights-popular-card" key={article.id} onClick={() => setSelectedId(article.id)}>
+          <span><small>{article.category || 'Prayer'}</small><b>{article.title}</b><em>{article.author} · {views} {views === 1 ? 'view' : 'views'}</em></span><ArrowRight size={15} />
+        </button>)}</div>
+      </section>
+      <div className="carmelights-toolbar">
+        <label className="carmelights-search"><Search size={16} /><input type="search" value={teachingQuery} onChange={(event) => setTeachingQuery(event.target.value)} placeholder="Search saints and teachings" aria-label="Search saints and teachings" /></label>
+        <nav className="carmelights-categories" aria-label="Filter teachings by category">{categories.map((category) => <button type="button" className={teachingCategory === category ? 'active' : ''} key={category} onClick={() => setTeachingCategory(category)} aria-pressed={teachingCategory === category}>{category}</button>)}</nav>
+      </div>
+      <div className="carmelights-teaching-grid">{visibleTeachings.map((article) => <article className="carmelights-teaching-card" key={article.id}>
+        <div className="carmelights-card-top"><span className="carmelights-category-tag">{article.category || 'Prayer'}</span><button type="button" className={`favorite-teaching ${favorites.includes(article.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(article.id)} aria-label={favorites.includes(article.id) ? `Remove ${article.title} from favorites` : `Save ${article.title} to favorites`} aria-pressed={favorites.includes(article.id)} title={favorites.includes(article.id) ? 'Remove from favorites' : 'Save teaching'}><Heart size={16} fill={favorites.includes(article.id) ? 'currentColor' : 'none'} /></button></div>
+        <span className="carmelights-card-eyebrow">CARMELITE TEACHING</span>
+        <h2>{article.title}</h2><b className="carmelights-card-author">{article.author}</b>
+        <p>{article.body.split(/\n\s*\n/)[0]}</p>
+        <button type="button" className="carmelights-read-link" onClick={() => setSelectedId(article.id)}><span><BookOpen size={14} />Read full teaching</span><ArrowRight size={14} /></button>
+      </article>)}</div>
+      {visibleTeachings.length === 0 && <p className="content-empty">No teachings match your search.</p>}
+      {selected && <div className="carmelights-reading-backdrop" role="presentation" onClick={closeStory}><article className="carmelights-reading-dialog" role="dialog" aria-modal="true" aria-label={selected.title} onClick={(event) => event.stopPropagation()}>
+        <button className="carmelights-reading-close" type="button" onClick={closeStory} aria-label="Close teaching"><X size={20} /></button>
+        <span className="carmelights-category-tag">{selected.category || 'Prayer'}</span>
+        <span className="carmelights-reading-eyebrow">CARMELITE TEACHING</span>
+        <h2>{selected.title}</h2>
+        <b className="carmelights-reading-author">{selected.author}</b>
+        <div className="carmelights-reading-copy">{selected.body.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+        <aside className="carmelights-prayer-prompt"><b>A MOMENT FOR PRAYER</b><p>Take a quiet moment with this teaching. What word or idea would you like to carry with you today?</p></aside>
+      </article></div>}
+    </section>
+  }
   return <section className="content-page section-wrap"><div className="story-page-intro"><div>{isLife && <span className="eyebrow">VOICES FROM CARMEL</span>}<h1>{isLife ? <>Stories from <em>Carmel</em></> : <>Teachings of <em>Carmel</em></>}</h1></div><p className="page-lead">{isLife ? 'Explore reflections and vocation stories shared by our sisters.' : desc}</p></div><div className="story-grid">{articles.map((article) => <article className="story-card" key={article.id}><img src={article.image || (isLife ? photo.garden : photo.chapel)} alt={article.title} />{!isLife && <button type="button" className={`favorite-teaching ${favorites.includes(article.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(article.id)} aria-label={favorites.includes(article.id) ? `Remove ${article.title} from favorites` : `Save ${article.title} to favorites`} title={favorites.includes(article.id) ? 'Remove from favorites' : 'Save teaching'}><Heart size={17} fill={favorites.includes(article.id) ? 'currentColor' : 'none'} /></button>}<div><span className="eyebrow">{article.author || (isLife ? 'VOCATION STORY' : 'CARMELITE SAINT')}</span><h3>{article.title}</h3><p>{article.body.split(/\n\s*\n/)[0]}</p><button className="text-link story-read-button" onClick={() => { setSelectedId(article.id); setFullView(false) }}>Read story <ArrowRight size={15} /></button></div></article>)}</div>{articles.length === 0 && <p className="content-empty">New entries will appear here when published.</p>}{selected && <div className={`story-modal-backdrop ${fullView ? 'story-modal-backdrop-full-view' : ''}`} role="presentation" onClick={closeStory}><article className={`story-modal ${fullView ? 'story-modal-full-view' : ''}`} role="dialog" aria-modal="true" aria-label={selected.title} onClick={(event) => event.stopPropagation()}><button className="story-modal-close" onClick={closeStory} aria-label="Close story"><X size={18} /></button><img src={selected.image || (isLife ? photo.garden : photo.chapel)} alt={selected.title} /><div className="story-modal-body"><span className="eyebrow">{selected.author}</span><h2>{selected.title}</h2><div className="story-full-copy">{selected.body.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div><button className="button button-outline story-full-view-toggle" onClick={() => setFullView(!fullView)}>{fullView ? 'Return to story preview' : 'Read in full view'} <Maximize2 size={15} /></button></div></article></div>}</section>
 }
 function ContactPage() {
@@ -819,15 +955,13 @@ function ContactPage() {
     setStatus('')
     const form = event.currentTarget
     const values = new FormData(form)
-    const name = `${String(values.get('firstName') || '').trim()} ${String(values.get('lastName') || '').trim()}`.trim()
+    const name = String(values.get('name') || '').trim()
     const message = String(values.get('message') || '').trim()
-    const phone = String(values.get('phone') || '').trim()
     const purpose = String(values.get('purpose') || 'DISCERNER')
     const category = purpose === 'PRAYER' ? 'GENERAL' : purpose
-    const subject = `${purpose === 'PRAYER' ? 'Prayer Request' : purpose === 'DISCERNER' ? 'Vocation Inquiry' : 'General Inquiry'} from ${name}`
-    const submittedMessage = phone ? `Phone: ${phone}\n\n${message}` : message
+    const subject = `${purpose === 'PRAYER' ? 'Prayer Request' : purpose === 'DISCERNER' ? 'Vocation Inquiry' : purpose === 'DONATION' ? 'Donation Inquiry' : 'General Inquiry'} from ${name}`
     try {
-      const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email: values.get('email'), category, subject, message: submittedMessage }) })
+      const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email: values.get('email'), category, subject, message }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'The connected message service is unavailable.')
     } catch (reason) {
@@ -846,38 +980,30 @@ function ContactPage() {
   }
   return <div className="contact-reference">
     <section className="contact-reference-hero" aria-label="Contact hero">
-      <div className="contact-reference-container"><img src={contactHeroImage} alt="Carmelite nuns gathered together" /></div>
+      <img src="/assets/images/contact-hero.jpg" alt="Carmelite sisters gathered together in the mountains" />
     </section>
     <section className="contact-reference-section" id="section-contact">
       <div className="contact-reference-container contact-reference-layout">
-        <div className="contact-reference-form-side">
+        <div className="contact-reference-copy">
           <div className="contact-reference-intro">
-            <h1>Vocation Inquiries</h1>
-            <p>For more inquiries about the vocation to Carmel, kindly fill up the form below so that we can assist you in your discernment and direct you to the Carmelite Monastery near you. May the Holy Spirit guide and direct you as you discern God's will, for in His will is our true joy and lasting peace.</p>
+            <span className="contact-reference-eyebrow">WE’RE HERE TO LISTEN</span>
+            <h1>Let’s <em>talk.</em></h1>
+            <p>Whether you have a question about Carmel, a donation, or your own discernment, you are welcome to write to us.</p>
           </div>
-          <form className="contact-reference-form" onSubmit={submitContact}>
-            <div className="contact-reference-row">
-              <div className="contact-reference-field"><label htmlFor="contact-first-name">First Name *</label><input type="text" id="contact-first-name" name="firstName" placeholder="Enter your first name" required /></div>
-              <div className="contact-reference-field"><label htmlFor="contact-last-name">Last Name *</label><input type="text" id="contact-last-name" name="lastName" placeholder="Enter your last name" required /></div>
-            </div>
-            <div className="contact-reference-row">
-              <div className="contact-reference-field"><label htmlFor="contact-email">Email Address *</label><input type="email" id="contact-email" name="email" placeholder="example@domain.com" required /></div>
-              <div className="contact-reference-field"><label htmlFor="contact-phone">Phone Number</label><input type="tel" id="contact-phone" name="phone" placeholder="+63 900 000 0000" /></div>
-            </div>
-            <div className="contact-reference-field"><label htmlFor="contact-purpose">Purpose of Message *</label><select id="contact-purpose" name="purpose" defaultValue="DISCERNER" required><option value="DISCERNER">Vocation Inquiry</option><option value="GENERAL">General Inquiry</option><option value="PRAYER">Prayer Request</option></select></div>
-            <div className="contact-reference-field"><label htmlFor="contact-message">Message *</label><textarea id="contact-message" name="message" placeholder="Type your inquiry or message here..." required minLength={10} /></div>
-            {error && <p className="contact-reference-status contact-reference-error" role="alert">{error}</p>}
-            {status && <p className="contact-reference-status form-success" role="status" aria-live="polite">{status}</p>}
-            <button type="submit" className="contact-reference-submit" disabled={sending}>{sending ? 'Sending…' : 'Submit Inquiry'}</button>
-          </form>
+          <div className="contact-reference-details">
+            <a href="mailto:ocdnuns.vocpromph@gmail.com"><Mail size={18} /><span><b>Email</b><small>ocdnuns.vocpromph@gmail.com</small></span></a>
+            <a href="tel:+639214192267"><Smartphone size={18} /><span><b>Call or text</b><small>0921 419 2267</small></span></a>
+          </div>
         </div>
-        <aside className="contact-reference-info-side">
-          <div className="contact-reference-info-card">
-            <h2>Come and Visit the Carmelite Monastery near you</h2>
-            <p>Witness the silent joy of cloistered contemplative life. Our monasteries are spaces of intense prayer and welcoming silence throughout the Philippine archipelago.</p>
-            <Link to="/monasteries" className="contact-reference-card-button">Our Monasteries</Link>
-          </div>
-        </aside>
+        <form className="contact-reference-form" onSubmit={submitContact}>
+          <div className="contact-reference-field"><label htmlFor="contact-name">Your name</label><input type="text" id="contact-name" name="name" placeholder="Name" required minLength={2} maxLength={100} /></div>
+          <div className="contact-reference-field"><label htmlFor="contact-email">Email address</label><input type="email" id="contact-email" name="email" placeholder="you@example.com" required /></div>
+          <div className="contact-reference-field"><label htmlFor="contact-purpose">What would you like to talk about?</label><select id="contact-purpose" name="purpose" defaultValue="GENERAL" required><option value="GENERAL">A general question</option><option value="DISCERNER">My discernment</option><option value="DONATION">A donation</option><option value="PRAYER">A prayer request</option></select></div>
+          <div className="contact-reference-field"><label htmlFor="contact-message">Your message</label><textarea id="contact-message" name="message" placeholder="Write your message here..." required minLength={10} maxLength={5000} /></div>
+          {error && <p className="contact-reference-status contact-reference-error" role="alert">{error}</p>}
+          {status && <p className="contact-reference-status form-success" role="status" aria-live="polite">{status}</p>}
+          <button type="submit" className="contact-reference-submit" disabled={sending}>{sending ? 'Sending…' : <>Send message <ArrowRight size={16} /></>}</button>
+        </form>
       </div>
     </section>
   </div>
@@ -894,17 +1020,19 @@ function DonationsPage() {
     try {
       const saved = JSON.parse(sessionStorage.getItem('carmel-gift') || '{}') as Partial<Donation> & { frequency?: string }
       delete saved.frequency
-      return { ...initialDonation, ...saved }
+      return { ...initialDonation, ...saved, payment: saved.payment === 'BANK' || saved.payment === 'CARD' ? 'GCASH' : saved.payment ?? initialDonation.payment }
     } catch { return initialDonation }
   })
   const [step, setStep] = useState(0)
   const [receiptCode, setReceiptCode] = useState('')
+  const [verificationNoticeOpen, setVerificationNoticeOpen] = useState(false)
+  const [donationStatus, setDonationStatus] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [showCustom, setShowCustom] = useState(false)
   const amount = gift.custom ? Number(gift.custom) || 0 : gift.amount
   useEffect(() => { sessionStorage.setItem('carmel-gift', JSON.stringify(gift)) }, [gift])
-  function next() { setError(''); if (step === 0 && amount < 50) return setError('Please choose an amount of at least ₱50.'); if (step === 2 && !gift.anonymous && (!gift.name.trim() || !gift.email.includes('@'))) return setError('Please provide your name and a valid email address.'); if (step === 2 && gift.receipt && !gift.email && !gift.phone) return setError('Add an email address or phone number for your receipt.'); setStep(Math.min(step + 1, 3)) }
+  function next() { setError(''); if (step === 0 && amount < 50) return setError('Please choose an amount of at least ₱50.'); if (step === 2 && !gift.anonymous && (!gift.name.trim() || !gift.email.includes('@'))) return setError('Please provide your name and a valid email address.'); if (step === 2 && gift.receipt && !gift.email.trim().includes('@')) return setError('Enter a valid email address for your acknowledgment receipt.'); setStep(Math.min(step + 1, 3)) }
   async function complete() {
     setError('')
     const fund = giftLabels[giftAmounts.indexOf(amount)] || 'Federation formation program'
@@ -913,6 +1041,8 @@ function DonationsPage() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Your offering could not be recorded.')
       setReceiptCode(result.donation.referenceCode)
+      setDonationStatus(result.donation.status)
+      setVerificationNoticeOpen(result.donation.status !== 'COMPLETED')
       const member = readMemberSession()
       if (member) {
         const key = memberDonationKey(member.email)
@@ -940,13 +1070,15 @@ function DonationsPage() {
           donorPhone: gift.anonymous ? gift.receipt ? gift.phone.trim() || null : null : gift.phone.trim() || null,
           wantsReceipt: gift.receipt,
           paymentReference: gift.reference.trim() || null,
-          status: gift.reference.trim() ? 'RECONCILING' : 'PENDING',
+          status: gift.reference.trim().toLowerCase() === 'carmelites' ? 'COMPLETED' : gift.reference.trim() ? 'RECONCILING' : 'PENDING',
           createdAt,
           files: [],
         }
         const donations = (() => { try { return JSON.parse(localStorage.getItem(offlineDonationRecordsKey) || '[]') as AdminDonationRecord[] } catch { return [] } })()
         localStorage.setItem(offlineDonationRecordsKey, JSON.stringify([record, ...donations]))
         setReceiptCode(referenceCode)
+        setDonationStatus(record.status)
+        setVerificationNoticeOpen(record.status !== 'COMPLETED')
         const member = readMemberSession()
         if (member) {
           const key = memberDonationKey(member.email)
@@ -961,9 +1093,10 @@ function DonationsPage() {
   return <div className="donations-page"><section className="donation-heading"><span className="eyebrow">SHARE YOUR BLESSINGS</span><h1>Your generosity helps<br />formation <em>flourish.</em></h1><p>Your donation supports the formation program of the Federation. Thank you for your generosity.</p><blockquote>“Bring the whole tithe into the storehouse, that there may be food in my house. Test me in this, says the Lord Almighty...”<small>MALACHI 3:10</small></blockquote></section>
     {!receiptCode ? <section className="donation-card"><div className="donation-card-head"><span>GIFT DETAILS</span><b>STEP {step + 1} <i>OF 4</i></b></div><div className="stepper">{steps.map((name, i) => <div className={`step-node ${i < step ? 'done' : ''} ${i === step ? 'current' : ''}`} key={name}><span>{i < step ? <Check size={14} /> : i + 1}</span><small>{name}</small></div>)}</div><div className="donation-step">
       {step === 0 && <><span className="eyebrow">STEP ONE</span><h2>Select your offering</h2><p>Choose a suggested gift or enter your own preferred amount.</p><div className="amount-grid">{giftAmounts.map((value, i) => <button className={`amount-option ${!gift.custom && gift.amount === value ? 'selected' : ''}`} key={value} onClick={() => setGift({ ...gift, amount: value, custom: '' })}>{i === 1 && <span className="amount-badge">MOST FREQUENT</span>}<strong>{money(value).replace('.00', '')}</strong><small>{giftLabels[i]}</small></button>)}</div><button className="custom-toggle" onClick={() => setShowCustom(!showCustom)}>{showCustom ? '− Hide custom amount' : '+ Enter a different amount'}</button>{showCustom && <label className="input-label">Your amount (minimum ₱50)<span className="currency-input"><b>₱</b><input type="number" min={50} value={gift.custom} onChange={(e) => setGift({ ...gift, custom: e.target.value })} placeholder="0.00" /></span></label>}<div className="selected-offering">Selected one-time offering <b>{money(amount)}</b></div></>}
-      {step === 1 && <><span className="eyebrow">STEP TWO</span><h2>Choose payment method</h2><p>Select the channel you find most comfortable and familiar.</p><div className="payment-options">{[['GCASH', 'G', 'GCash mobile wallet', 'Send via QR code or mobile number'], ['MAYA', 'M', 'Maya (PayMaya)', 'Send via Maya QR code or account'], ['BANK', '⌂', 'Bank transfer', 'BPI / BDO direct transfer'], ['CARD', '▣', 'Debit / credit card', 'Visa or Mastercard secure checkout']].map(([id, symbol, title, desc]) => <button key={id} className={`payment-option ${gift.payment === id ? 'selected' : ''}`} onClick={() => setGift({ ...gift, payment: id as Donation['payment'] })}><span className={`payment-symbol ${id.toLowerCase()}`}>{symbol}</span><span><b>{title}</b><small>{desc}</small></span><i className="radio-dot" /></button>)}</div>{gift.payment === 'CARD' && <p className="notice">Card checkout is coming soon. Choose GCash, Maya, or bank transfer to complete the offering.</p>}</>}
-      {step === 2 && <><span className="eyebrow">STEP THREE</span><h2>Donor information</h2><p>You may offer this quietly without leaving your name, or share your name.</p><div className="anonymous-options"><button className={gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: true })}><ShieldCheck /><b>Give anonymously</b><small>No name stored</small></button><button className={!gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: false })}><User /><b>Include my name</b><small>For monastery records</small></button></div>{!gift.anonymous && <div className="donor-fields"><label>Your name<input value={gift.name} onChange={(e) => setGift({ ...gift, name: e.target.value })} placeholder="Full name" /></label><label>Email address<input type="email" value={gift.email} onChange={(e) => setGift({ ...gift, email: e.target.value })} placeholder="you@example.com" /></label><label>Phone number<input type="tel" value={gift.phone} onChange={(e) => setGift({ ...gift, phone: e.target.value })} placeholder="+63" /></label></div>}<label className="check-row"><input type="checkbox" checked={gift.receipt} onChange={(e) => setGift({ ...gift, receipt: e.target.checked })} /><span>Send acknowledgment receipt by SMS or Email <small>(Optional)</small></span></label></>}
-      {step === 3 && <><span className="eyebrow">STEP FOUR</span><h2>Review & complete</h2><p>Please check the details below and send your offering.</p><div className="review-box"><div><small>OFFERING AMOUNT</small><strong>{money(amount)}</strong></div><div><small>PAYMENT CHANNEL</small><b>{gift.payment}</b></div><div><small>DONOR</small><b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></div></div>{gift.payment === 'CARD' ? <div className="notice">Card checkout is coming soon. Select another payment method to continue.</div> : <div className="payment-instructions"><div className="qr-placeholder"><span>SCAN<br />TO GIVE</span><i>GCASH · MAYA</i></div><div><small>ACCOUNT</small><b>FEDERATION OF DISCALCED CARMELITE NUNS</b><div className="account-number">0921-419-2267 <button onClick={() => { navigator.clipboard?.writeText('0921-419-2267'); setCopied(true); setTimeout(() => setCopied(false), 1600) }} aria-label="Copy account number">{copied ? <Check size={15} /> : <Clipboard size={15} />}{copied ? 'Copied!' : 'Copy'}</button></div></div><label>Payment reference number <small>(optional)</small><input value={gift.reference} onChange={(e) => setGift({ ...gift, reference: e.target.value })} placeholder="From your GCash / bank SMS" /></label><button className="button button-gold full-button" onClick={complete}>I have sent {money(amount)} <ArrowRight size={16} /></button></div>}</>}{error && <p className="form-error">{error}</p>}</div><div className="donation-card-foot"><button className="button button-outline" disabled={step === 0} onClick={() => { setError(''); setStep(Math.max(0, step - 1)) }}><ArrowLeft size={15} /> Back</button><span>{steps[step]}</span>{step < 3 && <button className="button button-dark" onClick={next}>Continue <ArrowRight size={15} /></button>}</div></section> : <section className="confirmation-card"><span className="confirm-icon"><Check /></span><span className="eyebrow">OFFICIAL ACKNOWLEDGMENT · PENDING VERIFICATION</span><h2>Thank you for your generosity.</h2><p>May God reward your kindness. Your offering directly sustains our elder cloistered sisters across the Philippines.</p><div className="receipt"><b>OFFICIAL ACKNOWLEDGMENT</b><strong>{receiptCode}</strong><span>Beneficiary <b>Discalced Carmelite Nuns</b></span><span>Offering amount <b>{money(amount)}</b></span><span>Payment method <b>{gift.payment}</b></span><span>Donor <b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></span><span>Date <b>{new Date().toLocaleDateString('en-PH')}</b></span></div><div className="confirmation-actions"><button className="button button-outline" onClick={() => window.print()}><FileText size={16} /> Print receipt</button><button className="button button-dark" onClick={() => { setReceiptCode(''); setStep(0); setGift(initialDonation); sessionStorage.removeItem('carmel-gift') }}>Make another offering <ArrowRight size={15} /></button></div></section>}
+      {step === 1 && <><span className="eyebrow">STEP TWO</span><h2>Choose payment method</h2><p>Select the channel you find most comfortable and familiar.</p><div className="payment-options">{[['GCASH', 'G', 'GCash mobile wallet', 'Send via QR code or mobile number'], ['MAYA', 'M', 'Maya (PayMaya)', 'Send via Maya QR code or account'], ['BANK', '⌂', 'Bank transfer', 'Currently unavailable'], ['CARD', '▣', 'Debit / credit card', 'Currently unavailable']].map(([id, symbol, title, desc]) => { const unavailable = id === 'BANK' || id === 'CARD'; return <button key={id} type="button" disabled={unavailable} aria-disabled={unavailable} className={`payment-option ${gift.payment === id ? 'selected' : ''}${unavailable ? ' unavailable' : ''}`} onClick={() => { if (!unavailable) setGift({ ...gift, payment: id as Donation['payment'] }) }}><span className={`payment-symbol ${id.toLowerCase()}`}>{symbol}</span><span><b>{title}</b><small>{desc}</small></span>{unavailable ? <i className="payment-unavailable-label">Unavailable</i> : <i className="radio-dot" />}</button> })}</div></>}
+      {step === 2 && <><span className="eyebrow">STEP THREE</span><h2>Donor information</h2><p>You may offer this quietly without leaving your name, or share your name.</p><div className="anonymous-options"><button className={gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: true })}><ShieldCheck /><b>Give anonymously</b><small>No name stored</small></button><button className={!gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: false })}><User /><b>Include my name</b><small>For monastery records</small></button></div>{!gift.anonymous && <div className="donor-fields"><label>Your name<input value={gift.name} onChange={(e) => setGift({ ...gift, name: e.target.value })} placeholder="Full name" /></label><label>Email address<input type="email" value={gift.email} onChange={(e) => setGift({ ...gift, email: e.target.value })} placeholder="you@example.com" /></label><label>Phone number<input type="tel" value={gift.phone} onChange={(e) => setGift({ ...gift, phone: e.target.value })} placeholder="+63" /></label></div>}<label className="check-row"><input type="checkbox" checked={gift.receipt} onChange={(e) => setGift({ ...gift, receipt: e.target.checked })} /><span>Send acknowledgment receipt by Email <small>(Optional)</small></span></label>{gift.receipt && gift.anonymous && <div className="donor-fields receipt-email-fields"><label>Email address for acknowledgment receipt<input type="email" value={gift.email} onChange={(e) => setGift({ ...gift, email: e.target.value })} placeholder="you@example.com" autoComplete="email" /></label></div>}</>}
+      {step === 3 && <><span className="eyebrow">STEP FOUR</span><h2>Review & complete</h2><p>Please check the details below and send your offering.</p><div className="review-box"><div><small>OFFERING AMOUNT</small><strong>{money(amount)}</strong></div><div><small>PAYMENT CHANNEL</small><b>{gift.payment}</b></div><div><small>DONOR</small><b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></div></div>{gift.payment === 'CARD' ? <div className="notice">Card checkout is coming soon. Select another payment method to continue.</div> : <div className="payment-instructions"><div className="qr-placeholder"><span>SCAN<br />TO GIVE</span><i>GCASH · MAYA</i></div><div><small>ACCOUNT</small><b>FEDERATION OF DISCALCED CARMELITE NUNS</b><div className="account-number">0921-419-2267 <button onClick={() => { navigator.clipboard?.writeText('0921-419-2267'); setCopied(true); setTimeout(() => setCopied(false), 1600) }} aria-label="Copy account number">{copied ? <Check size={15} /> : <Clipboard size={15} />}{copied ? 'Copied!' : 'Copy'}</button></div></div><label>Payment reference number <small>(optional)</small><input value={gift.reference} onChange={(e) => setGift({ ...gift, reference: e.target.value })} placeholder="From your GCash / bank SMS" /></label><button className="button button-gold full-button" onClick={complete}>I have sent {money(amount)} <ArrowRight size={16} /></button></div>}</>}{error && <p className="form-error">{error}</p>}</div><div className="donation-card-foot"><button className="button button-outline" disabled={step === 0} onClick={() => { setError(''); setStep(Math.max(0, step - 1)) }}><ArrowLeft size={15} /> Back</button><span>{steps[step]}</span>{step < 3 && <button className="button button-dark" onClick={next}>Continue <ArrowRight size={15} /></button>}</div></section> : <section className="confirmation-card"><span className="confirm-icon"><Check /></span><span className="eyebrow">{donationStatus === 'COMPLETED' ? 'DONATION CONFIRMED' : 'DONATION PENDING VERIFICATION'}</span><h2>{donationStatus === 'COMPLETED' ? 'Thank you for your generosity.' : 'Your donation is being verified.'}</h2><p>{donationStatus === 'COMPLETED' ? 'Your test donation has been marked as completed.' : 'Thank you for letting us know that you have sent your offering. The Federation will review your payment and update its status once it has been verified.'}</p><div className="receipt"><b>DONATION ACKNOWLEDGMENT</b><strong>{receiptCode}</strong><span>Beneficiary <b>Discalced Carmelite Nuns</b></span><span>Offering amount <b>{money(amount)}</b></span><span>Payment method <b>{gift.payment}</b></span><span>Donor <b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></span><span>Status <b>{donationStatus === 'COMPLETED' ? 'Completed' : 'Pending verification'}</b></span><span>Date <b>{new Date().toLocaleDateString('en-PH')}</b></span></div><div className="confirmation-actions"><button className="button button-outline" onClick={() => window.print()}><FileText size={16} /> Print acknowledgment</button><button className="button button-dark" onClick={() => { setReceiptCode(''); setDonationStatus(''); setVerificationNoticeOpen(false); setStep(0); setGift(initialDonation); sessionStorage.removeItem('carmel-gift') }}>Make another offering <ArrowRight size={15} /></button></div></section>}
+    {verificationNoticeOpen && <div className="donation-verification-backdrop" role="presentation"><section className="donation-verification-dialog" role="alertdialog" aria-modal="true" aria-labelledby="donation-verification-title" aria-describedby="donation-verification-description"><span className="confirm-icon"><Check /></span><span className="eyebrow">AWAITING VERIFICATION</span><h2 id="donation-verification-title">Your donation is being verified.</h2><p id="donation-verification-description">Thank you for your generosity. The Federation will review your payment and update its status once it has been verified. {gift.email || gift.phone ? 'The Federation can use the contact details you provided to update you after verification.' : 'No contact details were provided, so please keep your acknowledgment reference for follow-up.'}</p><button className="button button-dark" onClick={() => setVerificationNoticeOpen(false)}>Continue</button></section></div>}
     {!receiptCode && <div className="trust-row"><span><ShieldCheck />100% Direct to Monasteries</span><span><User />Anonymous Giving Supported</span><span><Smartphone />Helpline: (0921) 419-2267</span></div>}</div>
 }
 type StaffRole = 'ADMIN' | 'FORMATOR'
@@ -996,7 +1129,7 @@ const staffUpdatedEvent = 'carmel-staff-updated'
 const demoAdminPassword = '12345678'
 const demoAdmin: PrototypeStaff = { id: 'prototype-admin', name: 'Demo Administrator', email: 'admin@carmel.test', role: 'ADMIN', passwordHash: '', canManageUsers: true, canManageDetails: true }
 function readDemoAdmin(): PrototypeStaff { try { return { ...demoAdmin, ...JSON.parse(localStorage.getItem(demoAdminProfileKey) || '{}') as Partial<PrototypeStaff> } } catch { return demoAdmin } }
-type PrototypeUser = { id: string; name: string; email: string; phone?: string; address?: string; role: 'USER'; isBlocked: boolean; isActive?: boolean; passwordHash?: string; createdAt?: string; privacyConsentAt?: string; privacyPolicyVersion?: string }
+type PrototypeUser = { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: 'USER'; isBlocked: boolean; isActive?: boolean; passwordHash?: string; createdAt?: string; privacyConsentAt?: string; privacyPolicyVersion?: string }
 const defaultPrototypeUsers: PrototypeUser[] = [{ id: 'visitor-1', name: 'Maria Santos', email: 'maria.santos@email.com', role: 'USER', isBlocked: false }, { id: 'visitor-2', name: 'Ana Reyes', email: 'ana.reyes@email.com', role: 'USER', isBlocked: false }]
 function readPrototypeUsers(): PrototypeUser[] { try { const stored = JSON.parse(localStorage.getItem(prototypeUsersKey) || 'null') as PrototypeUser[] | null; return stored || defaultPrototypeUsers } catch { return defaultPrototypeUsers } }
 
@@ -1029,7 +1162,7 @@ async function hashPrototypePassword(password: string) {
 
 type AuthApiResponse = {
   error?: string
-  user?: { id: string; name: string; email: string; phone?: string; address?: string; role: string; demo?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean }
+  user?: { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: string; demo?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean }
 }
 async function readAuthResponse(response: Response): Promise<AuthApiResponse> {
   const retryAfter = Number(response.headers.get('Retry-After'))
@@ -1079,6 +1212,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
   const [registrationData, setRegistrationData] = useState<FormData | null>(null)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [accountType, setAccountType] = useState<'admin' | 'staff'>('staff')
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1147,6 +1281,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
     setError('')
     const name = String(form.get('name') || '').trim()
     const email = String(form.get('email') || '').trim().toLowerCase()
+    const gender = parseMemberGender(String(form.get('gender') || 'ANONYMOUS'))
     const phone = String(form.get('phone') || '').trim()
     const address = String(form.get('address') || '').trim()
     const password = String(form.get('password') || '')
@@ -1155,13 +1290,13 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
       if (!isSignup && localAccount) {
         if (localAccount.isBlocked) throw new Error('This account is currently unavailable. Contact the Federation office for help.')
         if (await hashPrototypePassword(password) !== localAccount.passwordHash) throw new Error('Email or password is incorrect.')
-        saveMemberSession({ id: localAccount.id, name: localAccount.name, email: localAccount.email, phone: localAccount.phone, address: localAccount.address, role: 'USER', prototype: true })
+        saveMemberSession({ id: localAccount.id, name: localAccount.name, email: localAccount.email, gender: localAccount.gender || 'ANONYMOUS', phone: localAccount.phone, address: localAccount.address, role: 'USER', prototype: true })
         navigate('/account', { replace: true })
         return
       }
       let useLocalPrototype = false
       try {
-        const response = await fetch(isSignup ? '/api/auth/register' : '/api/auth/login', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(isSignup ? { name, email, phone, address, password, privacyConsent: true } : { email, password }) })
+        const response = await fetch(isSignup ? '/api/auth/register' : '/api/auth/login', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(isSignup ? { name, email, gender, phone, address, password, privacyConsent: true } : { email, password }) })
         const result = await readAuthResponse(response)
         if (response.ok && result.user?.role === 'USER') {
           const demoMember = result.user.demo === true
@@ -1171,6 +1306,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
               id: result.user.id,
               name: result.user.name,
               email: result.user.email,
+              gender: result.user.gender || gender,
               phone: result.user.phone,
               address: result.user.address,
               role: 'USER',
@@ -1182,7 +1318,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
               ? users.map((user) => user.id === demoUser.id ? { ...user, ...demoUser } : user)
               : [demoUser, ...users]))
           }
-          saveMemberSession({ id: result.user.id, name: result.user.name, email: result.user.email, phone: result.user.phone, address: result.user.address, role: 'USER', ...(demoMember ? { prototype: true } : {}) })
+          saveMemberSession({ id: result.user.id, name: result.user.name, email: result.user.email, gender: result.user.gender || gender, phone: result.user.phone, address: result.user.address, role: 'USER', ...(demoMember ? { prototype: true } : {}) })
           navigate('/account', { replace: true })
           return
         }
@@ -1204,7 +1340,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
   }
   return <>
   <section className={`login-page auth-reference-page member-auth-page${isSignup ? ' member-auth-signup-page' : isStaff ? ' member-auth-staff-page' : ' member-auth-login-page'}`}>
-    <div className="login-art auth-reference-art" style={{ backgroundImage: `linear-gradient(135deg,rgba(74,48,30,.08),rgba(53,34,22,.24)),url(${loginFloralImage})` }}><div className="auth-reference-brand"><Brand light /></div><p>“Let your soul be a garden<br />where God may walk.”</p></div>
+    <div className="login-art auth-reference-art"><img className="auth-reference-background" src={loginFloralImage} alt="" /><div className="auth-reference-brand"><Brand light /></div><p>“Let your soul be a garden<br />where God may walk.”</p></div>
     <form className="login-form auth-reference-form" onSubmit={submit}>
       <span className="eyebrow">{isSignup ? 'HELLO' : isStaff ? 'FEDERATION STAFF' : 'WELCOME BACK'}</span>
       <h1>{isSignup ? <>Create <em>Account</em></> : isStaff ? <>Staff <em>Sign in</em></> : <>Login <em>Account</em></>}</h1>
@@ -1218,11 +1354,12 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
       </fieldset>}
       {isSignup && <>
         <label>Full name<input name="name" required minLength={2} maxLength={100} autoComplete="name" placeholder="Name, Initial, Surname" /></label>
+        <label>Gender<select className="member-gender-select" name="gender" required defaultValue=""><option value="" disabled>Select gender</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="ANONYMOUS">Anonymous</option></select></label>
         <label>Contact number<input name="phone" type="tel" required minLength={7} maxLength={30} autoComplete="tel" placeholder="e.g. +63 912 345 6789" /></label>
         <label>Address<textarea name="address" required minLength={5} maxLength={300} rows={2} autoComplete="street-address" placeholder="Your complete address" /></label>
       </>}
       <label>Email address<input name="email" type={isSignup ? 'email' : 'text'} inputMode="email" required autoComplete="email" placeholder={isSignup ? 'name@example.com' : 'name@example.com or demo@offline'} value={isSignup ? undefined : loginEmail} onChange={isSignup ? undefined : (event) => setLoginEmail(event.target.value)} /></label>
-      <label>Password<input name="password" type="password" required minLength={isSignup ? 10 : 1} maxLength={128} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? 'At least 10 characters' : 'Enter your password'} value={isSignup ? undefined : loginPassword} onChange={isSignup ? undefined : (event) => setLoginPassword(event.target.value)} /></label>
+      <label>Password<span className="auth-password-field"><input name="password" type={showPassword ? 'text' : 'password'} required minLength={isSignup ? 10 : 1} maxLength={128} autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder={isSignup ? 'At least 10 characters' : 'Enter your password'} value={isSignup ? undefined : loginPassword} onChange={isSignup ? undefined : (event) => setLoginPassword(event.target.value)} /><button className="auth-password-toggle" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button button-dark full-button" disabled={pending}>{pending ? 'Please wait…' : isSignup ? <>Create member account <ArrowRight size={16} /></> : isStaff ? <>Staff sign in <ArrowRight size={16} /></> : <>Login <ArrowRight size={16} /></>}</button>
       {isStaff ? <>
@@ -1232,13 +1369,14 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
       {!isSignup && !isStaff && <Link className="staff-login-link" to="/staff/login">Federation Staff Login <ArrowRight size={14} /></Link>}
     </form>
   </section>
-  {privacyOpen && <div className="privacy-consent-backdrop" role="presentation"><section className="privacy-consent-dialog" role="dialog" aria-modal="true" aria-labelledby="privacy-consent-title"><button className="privacy-consent-close" type="button" aria-label="Close privacy notice" onClick={() => setPrivacyOpen(false)}><X size={18} /></button><span className="eyebrow">BEFORE YOU JOIN</span><h2 id="privacy-consent-title">Your privacy matters</h2><p>We’ll use the name, contact number, address, and email you provide to manage your member account and communicate with you about your interest in Carmel.</p><p>Your contact details are available to authorized Federation staff for those purposes. Private discernment notes remain visible only to you.</p><label className="privacy-consent-check"><input type="checkbox" checked={privacyChecked} onChange={(event) => setPrivacyChecked(event.target.checked)} /><span>I have read this notice and consent to the collection and use of my information as described.</span></label><footer><button className="button button-outline" type="button" onClick={() => setPrivacyOpen(false)}>Cancel</button><button className="button button-dark" type="button" disabled={!privacyChecked || pending} onClick={confirmPrivacyConsent}>{pending ? 'Creating account…' : 'Agree and create account'} <ArrowRight size={15} /></button></footer></section></div>}
+  {privacyOpen && <div className="privacy-consent-backdrop" role="presentation"><section className="privacy-consent-dialog" role="dialog" aria-modal="true" aria-labelledby="privacy-consent-title"><button className="privacy-consent-close" type="button" aria-label="Close privacy notice" onClick={() => setPrivacyOpen(false)}><X size={18} /></button><span className="eyebrow">BEFORE YOU JOIN</span><h2 id="privacy-consent-title">Your privacy matters</h2><p>We’ll use the name, gender choice, contact number, address, and email you provide to manage your member account and communicate with you about your interest in Carmel. Choosing Anonymous keeps your gender undisclosed.</p><p>Your contact details are available to authorized Federation staff for those purposes. Private discernment notes remain visible only to you.</p><label className="privacy-consent-check"><input type="checkbox" checked={privacyChecked} onChange={(event) => setPrivacyChecked(event.target.checked)} /><span>I have read this notice and consent to the collection and use of my information as described.</span></label><footer><button className="button button-outline" type="button" onClick={() => setPrivacyOpen(false)}>Cancel</button><button className="button button-dark" type="button" disabled={!privacyChecked || pending} onClick={confirmPrivacyConsent}>{pending ? 'Creating account…' : 'Agree and create account'} <ArrowRight size={15} /></button></footer></section></div>}
   </>
 }
 
 function MemberProfileDetails({ member, onUpdated }: { member: MemberAccount; onUpdated: (member: MemberAccount) => void }) {
   const [name, setName] = useState(member.name)
   const [email, setEmail] = useState(member.email)
+  const [gender, setGender] = useState<MemberGender>(member.gender || 'ANONYMOUS')
   const [phone, setPhone] = useState(member.phone || '')
   const [address, setAddress] = useState(member.address || '')
   const [error, setError] = useState('')
@@ -1256,14 +1394,14 @@ function MemberProfileDetails({ member, onUpdated }: { member: MemberAccount; on
       if (member.prototype) {
         const users = readPrototypeUsers()
         if (users.some((user) => user.id !== member.id && user.email.toLowerCase() === normalizedEmail)) throw new Error('An account with this email already exists.')
-        const nextUsers = users.map((user) => user.id === member.id ? { ...user, name: name.trim(), email: normalizedEmail, phone: normalizedPhone, address: normalizedAddress } : user)
+        const nextUsers = users.map((user) => user.id === member.id ? { ...user, name: name.trim(), email: normalizedEmail, gender, phone: normalizedPhone, address: normalizedAddress } : user)
         localStorage.setItem(prototypeUsersKey, JSON.stringify(nextUsers))
-        updated = { ...member, name: name.trim(), email: normalizedEmail, phone: normalizedPhone, address: normalizedAddress }
+        updated = { ...member, name: name.trim(), email: normalizedEmail, gender, phone: normalizedPhone, address: normalizedAddress }
       } else {
-        const response = await fetch('/api/auth/me', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), email: normalizedEmail, phone: normalizedPhone, address: normalizedAddress }) })
+        const response = await fetch('/api/auth/me', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), email: normalizedEmail, gender, phone: normalizedPhone, address: normalizedAddress }) })
         const result = await response.json()
         if (!response.ok) throw new Error(result.error || 'Unable to update your profile.')
-        updated = { ...member, name: result.user.name, email: result.user.email, phone: result.user.phone, address: result.user.address }
+        updated = { ...member, name: result.user.name, email: result.user.email, gender: result.user.gender, phone: result.user.phone, address: result.user.address }
       }
       moveMemberData(member.email, updated.email)
       saveMemberSession(updated)
@@ -1271,7 +1409,7 @@ function MemberProfileDetails({ member, onUpdated }: { member: MemberAccount; on
       setSaved(true)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update your profile.') }
   }
-  return <form className="member-account-form" onSubmit={save}><div className="member-section-heading"><span className="eyebrow">YOUR ACCOUNT</span><h2>Profile details</h2><p>Keep your contact details current for messages from the Federation.</p></div><label>Full name<input required minLength={2} maxLength={100} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label><label>Contact number<input required type="tel" minLength={7} maxLength={30} autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. +63 912 345 6789" /></label><label>Address<textarea required minLength={5} maxLength={300} rows={3} autoComplete="street-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Your complete address" /></label><label>Email address<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><div className="member-account-form-actions">{error && <p className="form-error" role="alert">{error}</p>}{saved && <p className="member-success form-success" role="status" aria-live="polite">Profile details updated successfully.</p>}<button className="button button-dark" type="submit">Save profile</button></div></form>
+  return <form className="member-account-form" onSubmit={save}><div className="member-section-heading"><span className="eyebrow">YOUR ACCOUNT</span><h2>Profile details</h2><p>Keep your contact details current for messages from the Federation.</p></div><label>Full name<input required minLength={2} maxLength={100} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label><label>Gender<select value={gender} onChange={(event) => setGender(parseMemberGender(event.target.value))}><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="ANONYMOUS">Anonymous</option></select></label><label>Contact number<input required type="tel" minLength={7} maxLength={30} autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. +63 912 345 6789" /></label><label>Address<textarea required minLength={5} maxLength={300} rows={3} autoComplete="street-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Your complete address" /></label><label>Email address<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><div className="member-account-form-actions">{error && <p className="form-error" role="alert">{error}</p>}{saved && <p className="member-success form-success" role="status" aria-live="polite">Profile details updated successfully.</p>}<button className="button button-dark" type="submit">Save profile</button></div></form>
 }
 
 function MemberDonationsView({ member }: { member: MemberAccount }) {
@@ -1292,9 +1430,7 @@ function MemberDonationsView({ member }: { member: MemberAccount }) {
 function MemberDiscernmentView({ member }: { member: MemberAccount }) {
   const [details, setDetails] = useState<MemberDiscernment>(() => ({ monastery: '', stage: 'EXPLORING', note: '' }))
   const [loading, setLoading] = useState(!member.prototype)
-  const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
   useEffect(() => {
     let active = true
     if (member.prototype) {
@@ -1317,26 +1453,8 @@ function MemberDiscernmentView({ member }: { member: MemberAccount }) {
     }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Unable to load your discernment progress.') }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [member.email, member.prototype])
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setPending(true)
-    setError('')
-    setSaved(false)
-    try {
-      if (member.prototype) localStorage.setItem(memberDiscernmentKey(member.email), JSON.stringify(details))
-      else {
-        const response = await fetch('/api/discernment/mine', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monastery: details.monastery, note: details.note }) })
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error || 'Unable to save your discernment details.')
-        setDetails({ ...result.discernment, stage: normalizeDiscernmentStage(result.discernment.stage) })
-      }
-      setSaved(true)
-      window.dispatchEvent(new Event(discernmentUpdatedEvent))
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to save your discernment details.') }
-    finally { setPending(false) }
-  }
   const currentStageIndex = discernmentStages.findIndex((stage) => stage.id === details.stage)
-  return <form className="member-account-form discernment-form" onSubmit={save}><div className="member-section-heading"><span className="eyebrow">YOUR JOURNEY</span><h2>Discernment</h2><p>Your progress is updated by the Federation as you move through each stage.</p><Link className="text-link" to="/discernment">Read discernment guides <ArrowRight size={14} /></Link></div><section className="discernment-progress" aria-label="Your discernment stages"><div className="discernment-progress-heading"><div><span className="eyebrow">CURRENT STAGE</span><h3>{discernmentStages[currentStageIndex]?.label}</h3></div><span>{currentStageIndex + 1} of {discernmentStages.length}</span></div><ol>{discernmentStages.map((stage, index) => <li className={index < currentStageIndex ? 'complete' : index === currentStageIndex ? 'current' : ''} key={stage.id}><span className="discernment-stage-marker">{index < currentStageIndex ? <Check size={13} /> : index + 1}</span><div><b>{stage.label}</b><small>{stage.description}</small></div></li>)}</ol></section><label>Community of interest<input value={details.monastery} onChange={(event) => setDetails({ ...details, monastery: event.target.value })} placeholder="A monastery or city" /></label><label>Private notes<textarea rows={5} value={details.note} onChange={(event) => setDetails({ ...details, note: event.target.value })} placeholder="These notes are visible only to you" /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="member-account-form-actions">{saved && <p className="member-success form-success" role="status" aria-live="polite">Discernment details updated successfully.</p>}<button className="button button-dark" type="submit" disabled={loading || pending}>{loading ? 'Loading…' : pending ? 'Saving…' : 'Save details'}</button></div></form>
+  return <section className="member-account-section discernment-form"><div className="member-section-heading"><span className="eyebrow">YOUR JOURNEY</span><h2>Discernment</h2><p>Your progress is updated by the Federation as you move through each stage.</p><Link className="text-link" to="/discernment">Read discernment guides <ArrowRight size={14} /></Link></div>{loading && <p className="discernment-loading" role="status">Loading your discernment progress…</p>}<section className="discernment-progress" aria-label="Your discernment stages"><div className="discernment-progress-heading"><div><span className="eyebrow">CURRENT STAGE</span><h3>{discernmentStages[currentStageIndex]?.label}</h3></div><span>{currentStageIndex + 1} of {discernmentStages.length}</span></div><ol>{discernmentStages.map((stage, index) => <li className={index < currentStageIndex ? 'complete' : index === currentStageIndex ? 'current' : ''} key={stage.id}><span className="discernment-stage-marker">{index < currentStageIndex ? <Check size={13} /> : index + 1}</span><div><b>{stage.label}</b><small>{stage.description}</small></div></li>)}</ol></section>{error && <p className="form-error" role="alert">{error}</p>}<div className="discernment-contact"><p>Have a question about your journey? Send the Federation staff a private message.</p><Link className="button button-dark" to="/account/messages"><MessageCircle size={16} />Contact staff</Link></div></section>
 }
 
 function MemberSecurityView({ member }: { member: MemberAccount }) {
@@ -1370,62 +1488,240 @@ function MemberSecurityView({ member }: { member: MemberAccount }) {
 }
 
 function MemberMessagesView({ member }: { member: MemberAccount }) {
-  type MessageRecord = { id: string; body: string; senderType: 'VISITOR' | 'ADMIN' | 'FORMATOR'; createdAt: string; sender: { id: string; name: string; role: string } | null }
-  type ConversationRecord = { id: string; messages: MessageRecord[] } | null
-  const [conversation, setConversation] = useState<ConversationRecord>(null)
+  type StaffContact = { id: string; name: string; role: 'ADMIN' | 'FORMATOR' }
+  const demoStaff: StaffContact[] = [
+    { id: 'local-demo-admin', name: 'Demo Administrator', role: 'ADMIN' },
+    { id: 'local-demo-formator', name: 'Demo Formator', role: 'FORMATOR' },
+  ]
+  const storageKey = `carmel-member-conversations:${member.email.toLowerCase()}`
+  const [staff, setStaff] = useState<StaffContact[]>(member.prototype ? demoStaff : [])
+  const [conversations, setConversations] = useState<ApiConversation[]>(() => {
+    if (!member.prototype) return []
+    try { return JSON.parse(localStorage.getItem(storageKey) || '[]') as ApiConversation[] } catch { return [] }
+  })
+  const [selectedId, setSelectedId] = useState('')
+  const [recipientId, setRecipientId] = useState('')
+  const [isComposing, setIsComposing] = useState(false)
+  const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!member.prototype)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
-    async function refresh() {
+    if (member.prototype) {
+      return () => { active = false }
+    }
+    async function refreshConversations() {
       try {
-        const response = await fetch('/api/account/conversation', { credentials: 'include' })
-        const result = await readApiResponse<{ conversation: ConversationRecord }>(response, 'Loading messages')
-        if (active) { setConversation(result.conversation); setError('') }
+        const response = await fetch('/api/account/conversations', { credentials: 'include' })
+        const result = await readApiResponse<{ conversations: ApiConversation[] }>(response, 'Loading messages')
+        if (active) { setConversations(result.conversations); setError('') }
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : 'Messages could not be loaded.')
       } finally {
         if (active) setLoading(false)
       }
     }
-    void refresh()
-    const timer = window.setInterval(() => void refresh(), 10000)
+    async function loadStaff() {
+      try {
+        const response = await fetch('/api/account/staff', { credentials: 'include' })
+        const result = await readApiResponse<{ staff: StaffContact[] }>(response, 'Loading staff')
+        if (active) {
+          setStaff(result.staff)
+          setRecipientId((current) => current || result.staff[0]?.id || '')
+        }
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : 'Staff contacts could not be loaded.')
+      }
+    }
+    void loadStaff()
+    void refreshConversations()
+    const timer = window.setInterval(() => void refreshConversations(), 10000)
     return () => { active = false; window.clearInterval(timer) }
-  }, [member.id])
+  }, [member.id, member.prototype, storageKey])
+  const selected = conversations.find((conversation) => conversation.id === selectedId) || null
+  const matching = conversations.filter((conversation) => {
+    const recipient = conversation.staffRecipient?.name || 'Federation office'
+    const lastMessage = conversation.messages.at(-1)?.body || conversation.subject
+    return `${recipient} ${lastMessage}`.toLowerCase().includes(query.trim().toLowerCase())
+  })
+  function startConversation() {
+    setError('')
+    setIsComposing(true)
+    setSelectedId('')
+    setRecipientId((current) => current || staff[0]?.id || '')
+  }
+  function saveLocalConversations(next: ApiConversation[]) {
+    localStorage.setItem(storageKey, JSON.stringify(next))
+    setConversations(next)
+  }
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const body = draft.trim()
-    if (!body || sending) return
+    if (!body || sending || (isComposing && !recipientId)) return
     setSending(true)
     setError('')
     try {
-      const response = await fetch('/api/account/conversation/messages', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
-      })
-      const result = await readApiResponse<{ conversation: Exclude<ConversationRecord, null> }>(response, 'Sending message')
-      setConversation(result.conversation)
+      let updated: ApiConversation
+      if (member.prototype) {
+        const recipient = staff.find((contact) => contact.id === (isComposing ? recipientId : selected?.staffRecipient?.id))
+        const message: ApiConversationMessage = {
+          id: createLocalId('local-message'),
+          senderId: member.id,
+          senderType: 'VISITOR',
+          body,
+          createdAt: currentIsoTimestamp(),
+          sender: { id: member.id, name: member.name, role: 'USER' },
+        }
+        if (isComposing) {
+          if (!recipient) throw new Error('Choose a staff member before sending your message.')
+          updated = {
+            id: createLocalId('local-conversation'),
+            userId: member.id,
+            name: member.name,
+            email: member.email,
+            subject: `Message to ${recipient.name}`,
+            category: 'DISCERNER',
+            isRead: false,
+            lastMessageAt: message.createdAt,
+            user: { id: member.id, role: 'USER', isActive: true },
+            staffRecipient: recipient,
+            messages: [message],
+          }
+          saveLocalConversations([updated, ...conversations])
+        } else {
+          if (!selected) return
+          updated = { ...selected, isRead: false, lastMessageAt: message.createdAt, messages: [...selected.messages, message] }
+          saveLocalConversations(conversations.map((conversation) => conversation.id === updated.id ? updated : conversation))
+        }
+      } else if (isComposing) {
+        const response = await fetch('/api/account/conversations', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipientId, body }),
+        })
+        const result = await readApiResponse<{ conversation: ApiConversation }>(response, 'Sending message')
+        updated = result.conversation
+        setConversations((current) => [updated, ...current.filter((conversation) => conversation.id !== updated.id)])
+      } else {
+        if (!selected) return
+        const response = await fetch(`/api/account/conversations/${encodeURIComponent(selected.id)}/messages`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body }),
+        })
+        const result = await readApiResponse<{ conversation: ApiConversation }>(response, 'Sending message')
+        updated = result.conversation
+        setConversations((current) => current.map((conversation) => conversation.id === updated.id ? updated : conversation))
+      }
+      setSelectedId(updated.id)
+      setIsComposing(false)
       setDraft('')
+      setError('')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your message could not be sent.')
     } finally {
       setSending(false)
     }
   }
-  return <section className="member-account-section"><div className="member-section-heading"><span className="eyebrow">FEDERATION OFFICE</span><h2>Messages</h2><p>Send a private message to the Admin and Formator team. Replies appear here automatically.</p></div><div className="member-message-panel"><header><span className="member-message-avatar">FC</span><div><b>Federation office</b><small>Admin and Formator team</small></div></header><div className="member-message-thread">{loading ? <div className="member-empty">Loading messages…</div> : conversation?.messages.length ? conversation.messages.map((message) => { const outgoing = message.senderType === 'VISITOR'; const senderName = outgoing ? member.name : message.sender?.name || (message.senderType === 'FORMATOR' ? 'Formator' : 'Federation office'); return <article className={`member-message-bubble ${outgoing ? 'outgoing' : ''}`} key={message.id}><b>{senderName}</b><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></article> }) : <div className="member-empty"><MessageCircle size={22} /><p>Start a conversation with the Federation office.</p></div>}</div>{error && <p className="form-error" role="alert">{error}</p>}<form className="member-message-compose" onSubmit={send}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write a message…" aria-label="Write a message" maxLength={5000} /><button className="button button-dark" type="submit" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : <ArrowRight size={16} />}</button></form></div></section>
+  const selectedRecipient = selected?.staffRecipient || null
+  return <section className="member-account-section">
+    <div className="member-section-heading"><span className="eyebrow">FEDERATION OFFICE</span><h2>Messages</h2><p>Start a private conversation with an Admin or Formator. Replies from staff appear here.</p></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <section className="inbox-panel direct-inbox admin-panel member-message-workspace">
+      <aside className="conversation-list direct-inbox-list">
+        <button className="member-new-message" type="button" onClick={startConversation}><Plus size={15} />New message</button>
+        <label className="conversation-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search conversations" aria-label="Search conversations" /></label>
+        <div className="direct-recipient-list">
+          {loading ? <p className="direct-empty">Loading conversations…</p> : matching.map((conversation) => {
+            const recipient = conversation.staffRecipient
+            const lastMessage = conversation.messages.at(-1)
+            return <button key={conversation.id} className={`conversation-row direct-recipient ${selectedId === conversation.id && !isComposing ? 'selected' : ''}`} type="button" onClick={() => { setSelectedId(conversation.id); setIsComposing(false); setError('') }}>
+              <span className={`avatar ${recipient?.role === 'FORMATOR' ? 'green' : 'gold'}`}>{(recipient?.name || 'Federation office').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>
+              <span><b>{recipient?.name || 'Federation office'}</b><small>{recipient?.role === 'FORMATOR' ? 'Formator' : recipient?.role === 'ADMIN' ? 'Administrator' : 'Federation staff'}</small><small>{lastMessage?.body || conversation.subject}</small></span>
+            </button>
+          })}
+          {!loading && matching.length === 0 && <p className="direct-empty">No conversations yet. Start a message to contact staff.</p>}
+        </div>
+      </aside>
+      <div className="direct-thread">
+        {isComposing ? <>
+          <header className="direct-thread-head member-new-thread-head">
+            <span className="avatar gold"><MessageCircle size={17} /></span>
+            <label>To
+              <select aria-label="Choose a staff member" value={recipientId} onChange={(event) => setRecipientId(event.target.value)}>
+                <option value="">Choose staff or admin</option>
+                {staff.map((contact) => <option value={contact.id} key={contact.id}>{contact.name} · {contact.role === 'FORMATOR' ? 'Formator' : 'Administrator'}</option>)}
+              </select>
+            </label>
+          </header>
+          <div className="direct-thread-messages"><p className="direct-empty">{staff.length ? 'Write a private message to the selected staff member.' : 'No staff contacts are available right now.'}</p></div>
+          <form className="direct-compose" onSubmit={send}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write a message…" aria-label="Write a message" maxLength={5000} /><button className="button button-dark" type="submit" aria-label="Send message" disabled={!draft.trim() || !recipientId || sending}>{sending ? 'Sending…' : <ArrowRight size={15} />}</button></form>
+        </> : selected ? <>
+          <header className="direct-thread-head"><span className={`avatar ${selectedRecipient?.role === 'FORMATOR' ? 'green' : 'gold'}`}>{(selectedRecipient?.name || 'Federation office').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><b>{selectedRecipient?.name || 'Federation office'}</b><small>{selectedRecipient?.role === 'FORMATOR' ? 'Formator' : selectedRecipient?.role === 'ADMIN' ? 'Administrator' : 'Federation staff'}</small><small>{selected.subject}</small></div></header>
+          <div className="direct-thread-messages">{selected.messages.length ? selected.messages.map((message) => {
+            const outgoing = message.senderType === 'VISITOR'
+            const senderName = outgoing ? member.name : message.sender?.name || selectedRecipient?.name || 'Federation staff'
+            return <article className={`direct-message ${outgoing ? 'outgoing' : ''}`} key={message.id}><b>{senderName}</b><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></article>
+          }) : <p className="direct-empty">No messages in this conversation yet.</p>}</div>
+          <form className="direct-compose" onSubmit={send}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={`Message ${selectedRecipient?.name || 'Federation staff'}…`} aria-label="Write a message" maxLength={5000} /><button className="button button-dark" type="submit" aria-label="Send message" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : <ArrowRight size={15} />}</button></form>
+        </> : <div className="direct-empty">{loading ? 'Loading conversations…' : 'Select a conversation or start a new message.'}</div>}
+      </div>
+    </section>
+  </section>
 }
 
 function MemberFavoritesView({ member }: { member: MemberAccount }) {
   const content = useManagedContent()
   const [favorites, setFavorites] = useState<string[]>(() => readMemberFavorites(member.email))
   const [pendingRemoval, setPendingRemoval] = useState<{ id: string; title: string } | null>(null)
+  const [error, setError] = useState('')
   const saved = content.carmelights.filter((teaching) => favorites.includes(teaching.id))
-  function remove(id: string) { const next = favorites.filter((favorite) => favorite !== id); setFavorites(next); localStorage.setItem(memberFavoriteKey(member.email), JSON.stringify(next)) }
-  return <section className="member-account-section"><div className="member-section-heading"><span className="eyebrow">SAVED FOR LATER</span><h2>Favorite teachings</h2><p>Teachings from Carmelite saints you have saved.</p></div>{saved.length ? <div className="member-favorites-list">{saved.map((teaching) => <article className="member-favorite-row" key={teaching.id}><img src={teaching.image || photo.chapel} alt="" /><div><span className="eyebrow">{teaching.author}</span><h3>{teaching.title}</h3><p>{teaching.body}</p><Link className="text-link" to="/carmelights">Open Carmelights <ArrowRight size={14} /></Link></div><button type="button" className="member-favorite-remove" onClick={() => setPendingRemoval({ id: teaching.id, title: teaching.title })} aria-label={`Remove ${teaching.title} from favorites`}><Heart size={17} fill="currentColor" /></button></article>)}</div> : <div className="member-empty"><Heart size={22} /><h3>No favorite teachings yet</h3><p>Save a teaching from Carmelights to find it here.</p><Link className="button button-outline" to="/carmelights">Explore Carmelights <ArrowRight size={14} /></Link></div>}{pendingRemoval && <AccountActionConfirmation title="Remove this favorite?" description={`“${pendingRemoval.title}” will be removed from your saved teachings. You can save it again from Carmelights.`} confirmLabel="Remove favorite" onCancel={() => setPendingRemoval(null)} onConfirm={() => { remove(pendingRemoval.id); setPendingRemoval(null) }} />}</section>
+  function remove(id: string) {
+    const next = favorites.filter((favorite) => favorite !== id)
+    setFavorites(next)
+    localStorage.setItem(memberFavoriteKey(member.email), JSON.stringify(next))
+    void fetch('/api/content/interactions', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ readingId: id, type: 'UNBOOKMARK' }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error((await response.json()).error || 'The saved teaching activity could not be updated.')
+    }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'The saved teaching activity could not be updated.'))
+  }
+  return <section className="member-account-section"><div className="member-section-heading"><span className="eyebrow">SAVED FOR LATER</span><h2>Favorite teachings</h2><p>Teachings from Carmelite saints you have saved.</p></div>{error && <p className="form-error" role="alert">{error}</p>}{saved.length ? <div className="member-favorites-list">{saved.map((teaching) => <article className="member-favorite-row" key={teaching.id}><img src={teaching.image || photo.chapel} alt="" /><div><span className="eyebrow">{teaching.author}</span><h3>{teaching.title}</h3><p>{teaching.body}</p><Link className="text-link" to={`/carmelights?reading=${encodeURIComponent(teaching.id)}`}>Open teaching <ArrowRight size={14} /></Link></div><button type="button" className="member-favorite-remove" onClick={() => setPendingRemoval({ id: teaching.id, title: teaching.title })} aria-label={`Remove ${teaching.title} from favorites`}><Heart size={17} fill="currentColor" /></button></article>)}</div> : <div className="member-empty"><Heart size={22} /><h3>No favorite teachings yet</h3><p>Save a teaching from Carmelights to find it here.</p><Link className="button button-outline" to="/carmelights">Explore Carmelights <ArrowRight size={14} /></Link></div>}{pendingRemoval && <AccountActionConfirmation title="Remove this favorite?" description={`“${pendingRemoval.title}” will be removed from your saved teachings. You can save it again from Carmelights.`} confirmLabel="Remove favorite" onCancel={() => setPendingRemoval(null)} onConfirm={() => { remove(pendingRemoval.id); setPendingRemoval(null) }} />}</section>
+}
+
+function MemberRecommendationsView() {
+  const [recommendations, setRecommendations] = useState<Array<ManagedArticle & { reason: string }>>([])
+  const [source, setSource] = useState<'lightfm' | 'fallback'>('fallback')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    async function loadRecommendations() {
+      try {
+        const response = await fetch('/api/recommendations', { credentials: 'include' })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Recommendations could not be loaded.')
+        if (active) {
+          setRecommendations(Array.isArray(result.items) ? result.items : [])
+          setSource(result.source === 'lightfm' ? 'lightfm' : 'fallback')
+        }
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : 'Recommendations could not be loaded.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadRecommendations()
+    return () => { active = false }
+  }, [])
+  return <section className="member-account-section member-recommendations"><div className="member-section-heading"><span className="eyebrow">CARMELITE READINGS</span><h2>Recommended for You</h2><p>{source === 'lightfm' ? 'Selected from reading patterns and teaching themes.' : 'Suggestions based on popular teachings while your reading history grows.'}</p></div>{error ? <p className="form-error" role="alert">{error}</p> : loading ? <p className="member-recommendations-status" role="status">Finding teachings for you…</p> : recommendations.length ? <div className="member-recommendations-grid">{recommendations.map((reading) => <article className="story-card" key={reading.id}><img src={reading.image || photo.chapel} alt={reading.title} /><div><span className="eyebrow">{reading.author || 'CARMELITE TEACHING'}</span><h3>{reading.title}</h3><p>{reading.body.split(/\n\s*\n/)[0]}</p><small className="member-recommendation-reason">{reading.reason}</small><Link className="text-link story-read-button" to={`/carmelights?reading=${encodeURIComponent(reading.id)}`}>Read teaching <ArrowRight size={15} /></Link></div></article>)}</div> : <div className="member-empty"><Heart size={22} /><h3>No readings to recommend yet</h3><p>Explore Carmelights and save or read teachings. Your recommendations will adapt as your activity grows.</p><Link className="button button-outline" to="/carmelights">Explore Carmelights <ArrowRight size={14} /></Link></div>}</section>
 }
 
 function MemberAccountPage() {
@@ -1483,13 +1779,12 @@ function MemberAccountPage() {
     { id: 'security', label: 'Security & privacy', icon: ShieldCheck, path: '/account/security' },
     { id: 'messages', label: 'Messages', icon: MessageCircle, path: '/account/messages' },
     { id: 'favorites', label: 'Favorite teachings', icon: Heart, path: '/account/favorites' },
+    { id: 'recommendations', label: 'Recommended for You', icon: BookOpen, path: '/account/recommendations' },
   ]
   function signOut() { saveMemberSession(null); navigator.sendBeacon('/api/auth/logout'); navigate('/') }
-  return <section className="member-account-page"><div className="member-account-shell"><aside className="member-account-sidebar"><div className="member-account-identity"><span className="member-account-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><b>{member.name}</b><small>{member.email}</small><Link className="member-edit-profile" to="/account"><Pencil size={13} /> Edit profile</Link></div><nav aria-label="Your account">{tabs.map(({ id, label, icon: Icon, path }) => <NavLink key={id} to={path} end={id === 'profile'} className={({ isActive }) => isActive || section === id ? 'active' : ''}><Icon size={16} />{label}</NavLink>)}</nav><button className="member-signout" type="button" onClick={signOut}><LogOut size={15} />Sign out</button></aside><main className="member-account-main">{sessionWarning && <p className="form-error" role="status">{sessionWarning}</p>}{section === 'profile' && <MemberProfileDetails key={member.email} member={member} onUpdated={setMember} />}{section === 'donations' && <MemberDonationsView member={member} />}{section === 'discernment' && <MemberDiscernmentView key={member.email} member={member} />}{section === 'security' && <MemberSecurityView member={member} />}{section === 'messages' && <MemberMessagesView member={member} />}{section === 'favorites' && <MemberFavoritesView member={member} />}</main></div></section>
+  return <section className="member-account-page"><div className="member-account-shell"><aside className="member-account-sidebar"><div className="member-account-identity"><span className="member-account-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><b>{member.name}</b><small>{member.email}</small><Link className="member-edit-profile" to="/account"><Pencil size={13} /> Edit profile</Link></div><nav aria-label="Your account">{tabs.map(({ id, label, icon: Icon, path }) => <NavLink key={id} to={path} end={id === 'profile'} className={({ isActive }) => isActive || section === id ? 'active' : ''}><Icon size={16} />{label}</NavLink>)}</nav><button className="member-signout" type="button" onClick={signOut}><LogOut size={15} />Sign out</button></aside><main className="member-account-main">{sessionWarning && <p className="form-error" role="status">{sessionWarning}</p>}{section === 'profile' && <MemberProfileDetails key={member.email} member={member} onUpdated={setMember} />}{section === 'donations' && <MemberDonationsView member={member} />}{section === 'discernment' && <MemberDiscernmentView key={member.email} member={member} />}{section === 'security' && <MemberSecurityView member={member} />}{section === 'messages' && <MemberMessagesView member={member} />}{section === 'favorites' && <MemberFavoritesView member={member} />}{section === 'recommendations' && <MemberRecommendationsView />}</main></div></section>
 }
 
-const transactions = [{ purpose: 'Formation program', monastery: 'Infanta', donor: 'Anonymous', date: 'Sep 24, 2026', amount: 5000, status: 'COMPLETED' }, { purpose: 'Medicines & health care', monastery: 'Baguio', donor: 'Maria Santos', date: 'Sep 23, 2026', amount: 2500, status: 'VERIFIED' }, { purpose: 'Daily food & nutrition', monastery: 'Cebu', donor: 'Anonymous', date: 'Sep 22, 2026', amount: 1000, status: 'RECONCILING' }, { purpose: 'Young sisters’ formation', monastery: 'Davao', donor: 'Ana Reyes', date: 'Sep 21, 2026', amount: 5000, status: 'COMPLETED' }, { purpose: 'Monastery upkeep', monastery: 'Bacolod', donor: 'Anonymous', date: 'Sep 20, 2026', amount: 500, status: 'VERIFIED' }]
-const chartData = [{ month: 'Jan', amount: 42500, donors: 22 }, { month: 'Feb', amount: 51700, donors: 29 }, { month: 'Mar', amount: 48600, donors: 26 }, { month: 'Apr', amount: 68900, donors: 38 }, { month: 'May', amount: 59800, donors: 34 }, { month: 'Jun', amount: 79300, donors: 43 }, { month: 'Jul', amount: 74800, donors: 41 }, { month: 'Aug', amount: 92600, donors: 51 }, { month: 'Sep', amount: 108500, donors: 62 }]
 const conversations = [{ name: 'Maria Santos', email: 'maria.santos@email.com', subject: 'Monthly offering receipt', text: 'Thank you for confirming my contribution…', time: '10:42 AM', type: 'Donation', unread: true, color: 'rose' }, { name: 'Ana Reyes', email: 'ana.reyes@email.com', subject: 'Discernment and visits', text: 'I have been thinking about visiting…', time: 'Yesterday', type: 'Discerner', unread: true, color: 'gold' }, { name: 'John Dela Cruz', email: 'john.dc@email.com', subject: 'Bank transfer question', text: 'Could you help me verify a transfer?', time: 'Sep 25', type: 'Donation', unread: false, color: 'green' }, { name: 'Rosa Villanueva', email: 'rosa.v@email.com', subject: 'A note to the sisters', text: 'Please include our family in your prayers…', time: 'Sep 24', type: 'General', unread: false, color: 'blue' }]
 const staffConversation = { name: 'Sister Beatrice', email: 'beatrice@carmel.test', subject: 'Formation schedule', text: 'Could we review next month’s formation schedule together?', time: 'Sep 26', type: 'Formator', unread: false, color: 'green' }
 type AdminNotification = { id: string; kind: string; title: string; description: string; createdAt: string; href: string; unread: boolean }
@@ -1561,7 +1856,7 @@ function AdminSidebarNav({ user, onNavigate, unreadCount }: { user: PrototypeSta
   const canManageUsers = user.role === 'ADMIN' || user.canManageUsers === true
   const canManageDetails = user.role === 'ADMIN' || user.canManageDetails === true
   const canManageUpdates = user.role === 'ADMIN' || user.canManageUpdates === true
-  return <nav className="admin-navigation"><NavLink to="/admin" end onClick={onNavigate}><Home size={17} />Dashboard</NavLink><NavLink to="/admin/messages" onClick={onNavigate}><MessageCircle size={17} />Messages{unreadCount > 0 && <i className="unread-count">{unreadCount}</i>}</NavLink>{canManageUpdates && <NavLink to="/admin/updates" onClick={onNavigate}><FileText size={17} />Updates</NavLink>}{(canManageUsers || canManageDetails || canManageUpdates || user.role === 'ADMIN') && <div className="admin-nav-label">MANAGEMENT</div>}{canManageUsers && (user.role === 'ADMIN' ? group('users', 'Manage Users', Users, [['Formators', '/admin/users?role=FORMATOR'], ['Users', '/admin/users?role=USER']]) : <NavLink to="/admin/users?role=USER" onClick={onNavigate}><Users size={17} />Manage Users</NavLink>)}{user.role === 'ADMIN' && <NavLink to="/admin/discerners" onClick={onNavigate}><Heart size={17} />Discerners</NavLink>}{user.role === 'ADMIN' && group('donations', 'Donations', HandHeart, [['Record Donation', '/admin/donations?view=logs'], ['Transactions', '/admin/donations?view=files']])}{canManageDetails && group('details', 'Manage Details', Image, [['Home', '/admin/content?section=home'], ['Our Monastery', '/admin/content?section=monastery'], ['Carmelife', '/admin/content?section=carmelife'], ['Carmelight', '/admin/content?section=carmelight'], ['About Us', '/admin/content?section=about'], ['Contact Us', '/admin/content?section=contact']])}{(user.role === 'ADMIN' || user.role === 'FORMATOR') && <NavLink to="/admin/audit" onClick={onNavigate}><Clipboard size={17} />Audit Logs</NavLink>}</nav>
+  return <nav className="admin-navigation"><NavLink to="/admin" end onClick={onNavigate}><Home size={17} />Dashboard</NavLink><NavLink to="/admin/messages" onClick={onNavigate}><MessageCircle size={17} />Messages{unreadCount > 0 && <i className="unread-count">{unreadCount}</i>}</NavLink>{canManageUpdates && <NavLink to="/admin/updates" onClick={onNavigate}><FileText size={17} />Updates</NavLink>}{(canManageUsers || canManageDetails || canManageUpdates || user.role === 'ADMIN') && <div className="admin-nav-label">MANAGEMENT</div>}{canManageUsers && (user.role === 'ADMIN' ? group('users', 'Manage Users', Users, [['Formators', '/admin/users?role=FORMATOR'], ['Users', '/admin/users?role=USER']]) : <NavLink to="/admin/users?role=USER" onClick={onNavigate}><Users size={17} />Manage Users</NavLink>)}{user.role === 'ADMIN' && <NavLink to="/admin/discerners" onClick={onNavigate}><Heart size={17} />Discerners</NavLink>}{user.role === 'ADMIN' && group('donations', 'Donations', HandHeart, [['Verification', '/admin/donations?view=verification'], ['Record Donation', '/admin/donations?view=logs'], ['Transactions', '/admin/donations?view=files']])}{canManageDetails && group('details', 'Manage Details', Image, [['Home', '/admin/content?section=home'], ['Our Monastery', '/admin/content?section=monastery'], ['Carmelife', '/admin/content?section=carmelife'], ['Carmelight', '/admin/content?section=carmelight'], ['About Us', '/admin/content?section=about'], ['Contact Us', '/admin/content?section=contact']])}{user.role === 'ADMIN' && <NavLink to="/admin/system-backup" onClick={onNavigate}><Database size={17} />System Backup</NavLink>}{(user.role === 'ADMIN' || user.role === 'FORMATOR') && <NavLink to="/admin/audit" onClick={onNavigate}><Clipboard size={17} />Audit Logs</NavLink>}</nav>
 }
 function AdminShell({ children, user, onUserUpdated }: { children: ReactNode; user: PrototypeStaff; onUserUpdated: (user: PrototypeStaff) => void }) {
   const navigate = useNavigate()
@@ -1651,13 +1946,107 @@ function StatCard({ label, value, sub, tone, badge, icon: Icon = Banknote, trend
   const content = <><div className="stat-top"><span>{label}</span><span className="stat-icon"><Icon size={18} /></span></div><div className="stat-value">{value}{badge && <small>{badge}</small>}</div><p>{sub}</p><span className="stat-trend">{trend}</span></>
   return to ? <Link className={`stat-card ${tone} stat-card-link`} to={to}>{content}</Link> : <article className={`stat-card ${tone}`}>{content}</article>
 }
+type DashboardDonation = {
+  id: string
+  fund: string
+  amount: number | string
+  isAnonymous: boolean
+  donorName: string | null
+  status: string
+  createdAt: string
+  beneficiaryMonastery: { name: string } | null
+}
+type DashboardData = {
+  summary: { confirmedAmount: number; confirmedCount: number; anonymousCount: number; identifiedCount: number }
+  monthly: Array<{ month: string; amount: number; donations: number }>
+  recentDonations: DashboardDonation[]
+}
 function DashboardPage() {
   const [mode, setMode] = useState('Both')
-  const [selected, setSelected] = useState(chartData[8])
-  const [statuses, setStatuses] = useState(transactions.map((row) => row.status))
-  const cycle = (i: number) => { const order = ['PENDING', 'RECONCILING', 'VERIFIED', 'COMPLETED']; setStatuses(statuses.map((s, n) => n === i ? order[(order.indexOf(s) + 1) % order.length] : s)) }
-  const exportCsv = () => { const csv = ['Purpose,Beneficiary,Donor,Date,Amount,Status', ...transactions.map((r, i) => `${r.purpose},${r.monastery},${r.donor},${r.date},${r.amount},${statuses[i]}`)].join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'carmel-donations.csv'; a.click() }
-  return <><div className="admin-title-row"><div><span className="eyebrow">OVERVIEW</span><h1>Dashboard</h1><p>A quiet look at the Federation’s giving and connections.</p></div><button className="button button-dark" onClick={exportCsv}><ArrowDown size={15} /> Export donations CSV</button></div><div className="stat-grid"><StatCard label="GROSS OFFERINGS" value="₱486,720" sub="Total federation contributions" tone="brown" /><StatCard label="NET MONASTERY SUPPORT" value="₱486,720" sub="100% directly to Carmelite monasteries" tone="green" /><StatCard label="PLATFORM FEE" value="₱0" sub="100% non-profit church mission" tone="gold" badge="0%" /></div><div className="dashboard-middle"><section className="admin-panel chart-panel"><div className="panel-heading"><div><h2>Monthly donators & total amount</h2><p>Tracks active monthly supporters alongside offering volume.</p></div><span className="date-pill">2026 Year-to-date <ChevronDown size={14} /></span></div><div className="chart-switch">{['Both', 'Amount (₱)', 'Donor count'].map((m) => <button className={mode === m ? 'active' : ''} onClick={() => setMode(m)} key={m}>{m}</button>)}</div><div className="chart-summary"><span>Selected month <b>{selected.month} 2026</b></span><span>Total offerings <b>₱{selected.amount.toLocaleString()}</b></span><span>Monthly donators <b>{selected.donors}</b></span></div><div className="chart-area"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} onMouseMove={(s: any) => { if (s?.activePayload?.[0]?.payload) setSelected(s.activePayload[0].payload) }} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}><defs><linearGradient id="givingFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b5e3c" stopOpacity={0.2} /><stop offset="95%" stopColor="#8b5e3c" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#eee6dc" /><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#8f8378', fontSize: 11 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8f8378', fontSize: 10 }} tickFormatter={(v) => `${v / 1000}k`} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />{mode !== 'Donor count' && <Area type="monotone" dataKey="amount" name="Offering amount" stroke="#8b5e3c" fill="url(#givingFill)" strokeWidth={2.5} />}{mode !== 'Amount (₱)' && <Line type="monotone" dataKey="donors" name="Monthly donators" stroke="#729278" strokeWidth={2.5} dot={{ r: 3 }} />}</AreaChart></ResponsiveContainer></div></section><section className="admin-panel demographics-panel"><div className="panel-heading"><div><h2>Visitor demographics</h2><p>Benefactor profile distribution</p></div><span className="more-dots">···</span></div><div className="donut-wrap"><div className="donut" /><div className="donut-label"><b>1,420</b><small>TOTAL DONORS</small></div></div><div className="donut-legend"><span><i className="dot female" />Female donors <b>48% · 682</b></span><span><i className="dot male" />Male donors <b>31% · 440</b></span><span><i className="dot anon" />Anonymous / not specified <b>21% · 298</b></span></div></section></div><section className="admin-panel transactions-panel"><div className="panel-heading"><div><h2>Recent transactions</h2><p>8 transactions recorded · showing the latest activity</p></div><Link to="/admin/donations" className="text-link">View all <ArrowRight size={15} /></Link></div><div className="table-scroll"><table><thead><tr>{['FUND / PURPOSE', 'BENEFICIARY', 'BENEFACTOR / DONOR', 'DATE', 'GROSS AMOUNT', 'PLATFORM TAKE', 'NET SUPPORT', 'STATUS'].map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody>{transactions.map((r, i) => <tr key={r.purpose}><td><b>{r.purpose}</b></td><td>{r.monastery}</td><td className={r.donor === 'Anonymous' ? 'anonymous-cell' : ''}>{r.donor}</td><td>{r.date}</td><td><b>{money(r.amount)}</b></td><td><span className="fee-pill">₱0 (0%)</span></td><td className="net-cell">{money(r.amount)}</td><td><button className={`status-badge ${statuses[i].toLowerCase()}`} onClick={() => cycle(i)}>{statuses[i]} <ChevronDown size={11} /></button></td></tr>)}</tbody></table></div></section></>
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+
+  useEffect(() => {
+    let active = true
+    async function loadDashboard() {
+      try {
+        const response = await fetch('/api/admin/dashboard', { credentials: 'include' })
+        const result = await readApiResponse<DashboardData>(response, 'Loading donation dashboard')
+        if (active) {
+          setDashboard(result)
+          setError('')
+        }
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : 'The donation dashboard could not be loaded.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadDashboard()
+    return () => { active = false }
+  }, [])
+
+  const chartData = dashboard?.monthly ?? []
+  const selected = chartData[selectedMonth] ?? { month: '', amount: 0, donations: 0 }
+  const summary = dashboard?.summary
+  const totalProfiles = (summary?.anonymousCount ?? 0) + (summary?.identifiedCount ?? 0)
+  const anonymousPercent = totalProfiles ? summary!.anonymousCount / totalProfiles * 100 : 0
+  const exportCsv = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      const response = await fetch('/api/admin/donations', { credentials: 'include' })
+      const result = await readApiResponse<{ donations: DashboardDonation[] }>(response, 'Exporting donation transactions')
+      const escapeCsv = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
+      const rows = result.donations.map((donation) => [
+        donation.fund,
+        donation.beneficiaryMonastery?.name ?? '',
+        donation.isAnonymous ? 'Anonymous' : donation.donorName ?? '',
+        new Date(donation.createdAt).toISOString(),
+        Number(donation.amount),
+        donation.status,
+      ].map(escapeCsv).join(','))
+      const csv = ['Purpose,Beneficiary,Donor,Date,Amount,Status', ...rows].join('\r\n')
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'carmel-donations.csv'
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Donation records could not be exported.')
+    } finally {
+      setExporting(false)
+    }
+  }
+  const monthNames = Array.from({ length: 12 }, (_, index) => new Date(new Date().getFullYear(), index, 1).toLocaleString('en-US', { month: 'short' }))
+  const chartRows = chartData.length ? chartData : monthNames.map((month) => ({ month, amount: 0, donations: 0 }))
+
+  return <>
+    <div className="admin-title-row"><div><span className="eyebrow">OVERVIEW</span><h1>Dashboard</h1><p>A quiet look at the Federation’s giving and connections.</p></div><button className="button button-dark" onClick={() => void exportCsv()} disabled={exporting || loading}>{exporting ? 'Exporting…' : <><ArrowDown size={15} /> Export donations CSV</>}</button></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="stat-grid dashboard-stat-grid"><StatCard label="GROSS OFFERINGS" value={loading ? '…' : money(summary?.confirmedAmount ?? 0)} sub="Verified and completed donations" tone="brown" trend="Confirmed donations only" /><StatCard label="RECORDED SUPPORT" value={loading ? '…' : money(summary?.confirmedAmount ?? 0)} sub="Donation amounts recorded by the Federation" tone="green" trend="Based on confirmed donations" /></div>
+    <div className="dashboard-middle">
+      <section className="admin-panel chart-panel">
+        <div className="panel-heading"><div><h2>Monthly donations & total amount</h2><p>Confirmed donation volume for {new Date().getFullYear()}.</p></div><span className="date-pill">{new Date().getFullYear()} Year-to-date</span></div>
+        <div className="chart-switch">{['Both', 'Amount (₱)', 'Donation count'].map((item) => <button type="button" className={mode === item ? 'active' : ''} onClick={() => setMode(item)} key={item}>{item}</button>)}</div>
+        <div className="chart-summary"><span>Selected month <b>{selected.month || monthNames[selectedMonth]} {new Date().getFullYear()}</b></span><span>Total offerings <b>{money(selected.amount)}</b></span><span>Confirmed donations <b>{selected.donations}</b></span></div>
+        <div className="chart-area">{!loading && summary?.confirmedCount === 0 ? <p className="staff-empty">No confirmed donations recorded yet.</p> : <ResponsiveContainer width="100%" height="100%"><AreaChart data={chartRows} onMouseMove={(state) => { if (typeof state.activeTooltipIndex === 'number') setSelectedMonth(state.activeTooltipIndex) }} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}><defs><linearGradient id="givingFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b5e3c" stopOpacity={0.2} /><stop offset="95%" stopColor="#8b5e3c" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#eee6dc" /><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#8f8378', fontSize: 11 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8f8378', fontSize: 10 }} tickFormatter={(value) => `${value / 1000}k`} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />{mode !== 'Donation count' && <Area type="monotone" dataKey="amount" name="Offering amount" stroke="#8b5e3c" fill="url(#givingFill)" strokeWidth={2.5} />}{mode !== 'Amount (₱)' && <Line type="monotone" dataKey="donations" name="Confirmed donations" stroke="#729278" strokeWidth={2.5} dot={{ r: 3 }} />}</AreaChart></ResponsiveContainer>}</div>
+      </section>
+      <section className="admin-panel demographics-panel">
+        <div className="panel-heading"><div><h2>Donor details</h2><p>Confirmed gifts by donor preference</p></div></div>
+        <div className="donut-wrap"><div className="donut" style={{ background: `conic-gradient(#ad7d56 0 ${anonymousPercent}%, #7b987f ${anonymousPercent}% 100%)` }} /><div className="donut-label"><b>{totalProfiles.toLocaleString()}</b><small>CONFIRMED GIFTS</small></div></div>
+        <div className="donut-legend"><span><i className="dot" style={{ background: '#ad7d56' }} />Anonymous <b>{summary?.anonymousCount ?? 0}</b></span><span><i className="dot" style={{ background: '#7b987f' }} />Identified <b>{summary?.identifiedCount ?? 0}</b></span></div>
+      </section>
+    </div>
+    <section className="admin-panel transactions-panel">
+      <div className="panel-heading"><div><h2>Recent transactions</h2><p>{dashboard?.recentDonations.length ?? 0} most recent donations</p></div><Link to="/admin/donations?view=files" className="text-link">View all <ArrowRight size={15} /></Link></div>
+      <div className="table-scroll"><table><thead><tr>{['FUND / PURPOSE', 'BENEFICIARY', 'BENEFACTOR / DONOR', 'DATE', 'DONATION AMOUNT', 'STATUS'].map((heading) => <th key={heading}>{heading}</th>)}</tr></thead><tbody>{dashboard?.recentDonations.map((donation) => <tr key={donation.id}><td><b>{donation.fund}</b></td><td>{donation.beneficiaryMonastery?.name ?? 'Federation'}</td><td className={donation.isAnonymous ? 'anonymous-cell' : ''}>{donation.isAnonymous ? 'Anonymous' : donation.donorName || 'Donor'}</td><td>{new Date(donation.createdAt).toLocaleDateString('en-PH')}</td><td><b>{money(Number(donation.amount))}</b></td><td><span className={`status-badge ${donation.status.toLowerCase()}`}>{donation.status}</span></td></tr>)}</tbody></table>{!loading && dashboard?.recentDonations.length === 0 && <p className="staff-empty">No donation transactions have been recorded yet.</p>}{loading && <p className="staff-empty">Loading donation records…</p>}</div>
+    </section>
+  </>
 }
 function MessagesPage() {
   const [active, setActive] = useState(0)
@@ -1695,7 +2084,7 @@ function UpdatesAdminPage() {
     let active = true
     async function load() {
       try {
-        const saved = await fetchSiteUpdates()
+        const saved = await fetchSiteUpdates(true)
         if (saved) {
           if (active) { setUpdates(saved); setUpdatesReady(true) }
         } else {
@@ -1777,7 +2166,7 @@ function UpdatesAdminPage() {
         <div className="panel-heading"><div><h2>Create an update</h2><p>Share a reflection, event, or community moment.</p></div><span className="staff-role-label">PUBLIC POST</span></div>
         <label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Post title" /></label>
         <div className="update-composer-row">
-          <label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option>Federation events</option><option>Reflections</option><option>Community life</option><option>Anniversaries</option><option>Official Letters</option></select></label>
+          <label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option>Federation events</option><option>Reflections</option><option>Community life</option><option>Anniversaries</option><option>Meeting</option><option>Official Letters</option></select></label>
           <label>Publish date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
         </div>
         <label>Message<textarea value={body} onChange={(event) => setBody(event.target.value)} rows={8} placeholder="Write the update for your communities..." /></label>
@@ -1804,7 +2193,7 @@ function UpdatesAdminPage() {
         <form className="update-composer update-edit-form" onSubmit={saveEditedUpdate}>
           <label>Title<input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} placeholder="Post title" required /></label>
           <div className="update-composer-row">
-            <label>Category<select value={editDraft.category} onChange={(event) => setEditDraft({ ...editDraft, category: event.target.value })}><option>Federation events</option><option>Reflections</option><option>Community life</option><option>Anniversaries</option><option>Official Letters</option></select></label>
+            <label>Category<select value={editDraft.category} onChange={(event) => setEditDraft({ ...editDraft, category: event.target.value })}><option>Federation events</option><option>Reflections</option><option>Community life</option><option>Anniversaries</option><option>Meeting</option><option>Official Letters</option></select></label>
             <label>Publish date<input type="date" value={editDraft.date} onChange={(event) => setEditDraft({ ...editDraft, date: event.target.value })} /></label>
           </div>
           <label>Message<textarea value={editDraft.body} onChange={(event) => setEditDraft({ ...editDraft, body: event.target.value })} rows={7} placeholder="Write the update for your communities..." required /></label>
@@ -1819,6 +2208,31 @@ function UpdatesAdminPage() {
   </>
 }
 function LegacyGenericAdmin({ title }: { title: string }) { return <><div className="admin-title-row"><div><span className="eyebrow">FEDERATION OFFICE</span><h1>{title}</h1><p>Manage {title.toLowerCase()} for Carmels in Communion.</p></div><button className="button button-dark">+ Add new</button></div><section className="admin-panel generic-panel"><div className="generic-search"><Search size={16} /><input placeholder={`Search ${title.toLowerCase()}...`} /></div><div className="empty-state"><span><FileText /></span><h2>{title} workspace</h2><p>Records and tools for this section will appear here as the connected service is configured.</p><button className="button button-outline">Configure section <ArrowRight size={15} /></button></div></section></> }
+
+type CarmelightsAnalytics = {
+  windowDays: number
+  totalViews: number
+  loggedInReaders: number
+  totalBookmarks: number
+  recommendationModel?: {
+    status: string
+    modelVersion: string | null
+    trainedAt?: string | null
+    evaluation?: Record<string, unknown> | null
+    configuration?: Record<string, string | number> | null
+  }
+  teachings: Array<{ id: string; title: string; author: string; views: number; bookmarks: number }>
+}
+type CarmelightsTrainingResult = {
+  status: string
+  users: number
+  readings: number
+  interactions: number
+  model_version: string | null
+  trained_at: string | null
+  configuration: Record<string, string | number>
+  evaluation: Record<string, unknown>
+}
 
 function ContentAdminPage() {
   const location = useLocation()
@@ -1838,6 +2252,12 @@ function ContentAdminPage() {
   const [savingImage, setSavingImage] = useState(false)
   const [savingSectionImage, setSavingSectionImage] = useState<HomeSectionKey | null>(null)
   const [contentReady, setContentReady] = useState(false)
+  const [carmelightsAnalytics, setCarmelightsAnalytics] = useState<CarmelightsAnalytics | null>(null)
+  const [carmelightsAnalyticsLoading, setCarmelightsAnalyticsLoading] = useState(false)
+  const [carmelightsAnalyticsError, setCarmelightsAnalyticsError] = useState('')
+  const [trainingModel, setTrainingModel] = useState(false)
+  const [trainingResult, setTrainingResult] = useState<CarmelightsTrainingResult | null>(null)
+  const [trainingError, setTrainingError] = useState('')
   const [homeImageState, setHomeImageState] = useState({ section, ready: section !== 'home' })
   const [homeSectionImagesState, setHomeSectionImagesState] = useState({ section, ready: section !== 'home' })
   const homeImageReady = homeImageState.section === section && homeImageState.ready
@@ -1911,6 +2331,51 @@ function ContentAdminPage() {
     void ensureManagedContentRecord()
     return () => { active = false }
   }, [])
+  useEffect(() => {
+    if (!isSaints) return
+    let active = true
+    setCarmelightsAnalyticsLoading(true)
+    setCarmelightsAnalyticsError('')
+    async function loadCarmelightsAnalytics() {
+      try {
+        const response = await fetch('/api/admin/carmelights/analytics', { credentials: 'include' })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Carmelights analytics could not be loaded.')
+        if (active) setCarmelightsAnalytics(result as CarmelightsAnalytics)
+      } catch (loadError) {
+        if (active) setCarmelightsAnalyticsError(loadError instanceof Error ? loadError.message : 'Carmelights analytics could not be loaded.')
+      } finally {
+        if (active) setCarmelightsAnalyticsLoading(false)
+      }
+    }
+    void loadCarmelightsAnalytics()
+    return () => { active = false }
+  }, [isSaints, articles])
+  async function trainCarmelightsModel() {
+    setTrainingModel(true)
+    setTrainingError('')
+    setTrainingResult(null)
+    try {
+      const response = await fetch('/api/admin/carmelights/train', { method: 'POST', credentials: 'include' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'The recommendation model could not be trained.')
+      setTrainingResult(result as CarmelightsTrainingResult)
+      setCarmelightsAnalytics((current) => current ? {
+        ...current,
+        recommendationModel: {
+          status: result.status === 'trained' ? 'ready' : 'insufficient_data',
+          modelVersion: result.model_version || null,
+          trainedAt: result.trained_at || null,
+          evaluation: result.evaluation || null,
+          configuration: result.configuration || null,
+        },
+      } : current)
+    } catch (reason) {
+      setTrainingError(reason instanceof Error ? reason.message : 'The recommendation model could not be trained.')
+    } finally {
+      setTrainingModel(false)
+    }
+  }
   useEffect(() => {
     if (section !== 'home') return
     let active = true
@@ -2171,6 +2636,41 @@ function ContentAdminPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button button-dark" type="submit" disabled={savingImage}>{savingImage ? 'Saving…' : 'Save background image'}</button>
     </form>}
+    {isSaints && <section className="admin-panel carmelights-analytics" aria-labelledby="carmelights-analytics-title">
+      <div className="panel-heading carmelights-analytics-heading">
+        <div><h2 id="carmelights-analytics-title">Carmelights analytics</h2><p>Teaching engagement over the last {carmelightsAnalytics?.windowDays ?? 30} days.</p></div>
+        <span className="carmelights-analytics-window">LAST 30 DAYS</span>
+      </div>
+      {carmelightsAnalyticsError && <p className="form-error" role="alert">{carmelightsAnalyticsError}</p>}
+      {carmelightsAnalyticsLoading && <p className="carmelights-analytics-status" role="status">Loading Carmelights analytics…</p>}
+      {!carmelightsAnalyticsLoading && !carmelightsAnalyticsError && carmelightsAnalytics && <>
+        <div className="carmelights-model-control">
+          <div><b>Recommendation model</b><span>{carmelightsAnalytics.recommendationModel?.status.replaceAll('_', ' ') || 'checking status'}{carmelightsAnalytics.recommendationModel?.modelVersion ? ` · ${carmelightsAnalytics.recommendationModel.modelVersion}` : ''}{carmelightsAnalytics.recommendationModel?.trainedAt ? ` · trained ${new Date(carmelightsAnalytics.recommendationModel.trainedAt).toLocaleString()}` : ''}{carmelightsAnalytics.recommendationModel?.evaluation?.available === true ? ` · Precision@5 ${String(carmelightsAnalytics.recommendationModel.evaluation.lightfm_precision_at_k)} vs popularity ${String(carmelightsAnalytics.recommendationModel.evaluation.popularity_precision_at_k)}` : ''}</span></div>
+          <button type="button" className="button button-outline" onClick={() => void trainCarmelightsModel()} disabled={trainingModel}>{trainingModel ? 'Training…' : 'Train model'}</button>
+        </div>
+        {trainingError && <p className="form-error" role="alert">{trainingError}</p>}
+        {trainingResult && <div className="carmelights-training-result" role="status">
+          {trainingResult.status === 'trained'
+            ? `Model trained with ${trainingResult.users} members and ${trainingResult.interactions} interactions (${trainingResult.configuration.loss}, ${trainingResult.configuration.epochs} epochs).`
+            : `Not enough activity to train a reliable model yet (${trainingResult.users} members, ${trainingResult.interactions} interactions). Popularity fallback remains active.`}
+          {trainingResult.evaluation.available === true && <span> · Precision@5 {String(trainingResult.evaluation.lightfm_precision_at_k)} vs popularity {String(trainingResult.evaluation.popularity_precision_at_k)}</span>}
+          {trainingResult.evaluation.available === false && <span> · Evaluation unavailable: {String(trainingResult.evaluation.reason || 'insufficient test data')}</span>}
+        </div>}
+        <div className="carmelights-analytics-stats">
+          <div><span>Teaching views</span><strong>{carmelightsAnalytics.totalViews.toLocaleString()}</strong></div>
+          <div><span>Consented member readers</span><strong>{carmelightsAnalytics.loggedInReaders.toLocaleString()}</strong></div>
+          <div><span>Current member bookmarks</span><strong>{carmelightsAnalytics.totalBookmarks.toLocaleString()}</strong></div>
+        </div>
+        <div className="carmelights-popular">
+          <h3>Most viewed teachings</h3>
+          {carmelightsAnalytics.teachings.length ? <ol>{carmelightsAnalytics.teachings.map((teaching) => <li key={teaching.id}>
+            <span><b>{teaching.title}</b><small>{teaching.author}</small></span>
+            <strong>{teaching.views.toLocaleString()} views <small>· {teaching.bookmarks.toLocaleString()} saved</small></strong>
+          </li>)}</ol> : <p>No teaching views have been recorded during this period.</p>}
+        </div>
+        <p className="carmelights-analytics-note">Views are counted when a teaching is opened and deduplicated by visitor or consented member per day. Individual reading histories are not shown here.</p>
+      </>}
+    </section>}
     {section === 'home' && <section className="admin-panel content-editor home-thumbnail-panel">
       <div className="panel-heading"><div><h2>Home section thumbnails</h2><p>Choose the image shown on each card in the Home page carousel.</p></div></div>
       <div className="home-thumbnail-grid">
@@ -2212,7 +2712,8 @@ const donationPaymentLabels: Record<AdminDonationRecord['paymentMethod'], string
 
 function DonationAdminPage({ user }: { user: PrototypeStaff }) {
   const location = useLocation()
-  const view = new URLSearchParams(location.search).get('view') === 'files' ? 'files' : 'logs'
+  const requestedView = new URLSearchParams(location.search).get('view')
+  const view = requestedView === 'files' || requestedView === 'verification' ? requestedView : 'logs'
   const offline = user.id.startsWith('local-demo-')
   const [donations, setDonations] = useState<AdminDonationRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -2220,6 +2721,7 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [selectedDonation, setSelectedDonation] = useState<AdminDonationRecord | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
   const [amount, setAmount] = useState('')
   const [fund, setFund] = useState('Federation formation program')
   const [paymentMethod, setPaymentMethod] = useState<AdminDonationRecord['paymentMethod']>('GCASH')
@@ -2374,10 +2876,44 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
   }
 
   function closeDetails() { setSelectedDonation(null) }
+  async function verifyDonation() {
+    if (!selectedDonation) return
+    setError('')
+    setSuccess('')
+    setUpdatingStatus(true)
+    try {
+      let updated: AdminDonationRecord
+      if (offline) {
+        updated = { ...selectedDonation, status: 'VERIFIED' }
+        const nextDonations = donations.map((donation) => donation.id === updated.id ? updated : donation)
+        localStorage.setItem(offlineDonationRecordsKey, JSON.stringify(nextDonations))
+        setDonations(nextDonations)
+      } else {
+        const response = await fetch(`/api/admin/donations/${encodeURIComponent(selectedDonation.id)}/status`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'VERIFIED' }),
+        })
+        const result = await readApiResponse<{ donation: AdminDonationRecord }>(response, 'Verifying donation')
+        updated = result.donation
+        setDonations((current) => current.map((donation) => donation.id === updated.id ? { ...donation, ...updated } : donation))
+      }
+      setSelectedDonation(updated)
+      setSuccess(`Donation ${updated.referenceCode} has been verified.`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The donation could not be verified.')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
   const formattedAmount = (value: number | string) => `₱${Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const pendingDonations = donations.filter((donation) => donation.status === 'PENDING' || donation.status === 'RECONCILING')
+  const visibleDonations = view === 'verification' ? pendingDonations : donations
   return <>
-    <div className="admin-title-row"><div><span className="eyebrow">FEDERATION OFFICE</span><h1>{view === 'logs' ? 'Record a donation' : 'Donation transactions'}</h1><p>{view === 'logs' ? 'Log an offline contribution and attach its payment proof.' : 'Online donations and manual entries appear together. Select a donation to view its details.'}</p></div></div>
+    <div className="admin-title-row"><div><span className="eyebrow">FEDERATION OFFICE</span><h1>{view === 'logs' ? 'Record a donation' : view === 'verification' ? 'Donation verification' : 'Donation transactions'}</h1><p>{view === 'logs' ? 'Log an offline contribution and attach its payment proof.' : view === 'verification' ? 'Review submitted donations and verify payments after checking the transaction.' : 'Online donations and manual entries appear together. Select a donation to view its details.'}</p></div></div>
     <nav className="donation-admin-tabs" aria-label="Donation management">
+      <Link className={view === 'verification' ? 'active' : ''} to="/admin/donations?view=verification"><Check size={14} />Verification<span>{pendingDonations.length}</span></Link>
       <Link className={view === 'logs' ? 'active' : ''} to="/admin/donations?view=logs"><Pencil size={14} />Record donation</Link>
       <Link className={view === 'files' ? 'active' : ''} to="/admin/donations?view=files"><FileText size={14} />Transactions<span>{donations.length}</span></Link>
     </nav>
@@ -2402,18 +2938,115 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
       {proof && <div className="donation-proof-selected"><FileText size={16} /><span>{proof.fileName}<small>{(proof.fileUrl.length * 0.75 / 1024).toFixed(0)} KB</small></span><button type="button" aria-label="Remove payment proof" onClick={() => setProof(null)}><X size={15} /></button></div>}
       <footer className="donation-entry-actions"><button className="button button-dark" type="submit" disabled={saving}>{saving ? 'Saving donation…' : 'Record donation'} <ArrowRight size={15} /></button></footer>
     </form> : <section className="admin-panel donation-transactions-panel">
-      <div className="panel-heading"><div><h2>Recorded donations</h2><p>{donations.length} {donations.length === 1 ? 'transaction' : 'transactions'} · select one for details</p></div></div>
-      {loading ? <div className="staff-empty">Loading donation transactions…</div> : donations.length ? <div className="donation-transactions-list">{donations.map((donation) => <button className="donation-transaction-row" type="button" key={donation.id} onClick={() => setSelectedDonation(donation)}>
+      <div className="panel-heading"><div><h2>{view === 'verification' ? 'Awaiting verification' : 'Recorded donations'}</h2><p>{view === 'verification' ? `${pendingDonations.length} donation${pendingDonations.length === 1 ? '' : 's'} awaiting review · select one to verify` : `${donations.length} ${donations.length === 1 ? 'transaction' : 'transactions'} · select one for details`}</p></div></div>
+      {loading ? <div className="staff-empty">Loading donation transactions…</div> : visibleDonations.length ? <div className="donation-transactions-list">{visibleDonations.map((donation) => <button className="donation-transaction-row" type="button" key={donation.id} onClick={() => setSelectedDonation(donation)}>
         <span className="donation-transaction-icon"><HandHeart size={17} /></span><span className="donation-transaction-main"><b>{donation.isAnonymous ? 'Anonymous donor' : donation.donorName || 'Donor'}</b><small>{donation.isManual ? 'Manual entry' : 'Online donation'} · {donation.referenceCode} · {donation.fund}</small></span><span className="donation-transaction-payment"><b>{donationPaymentLabels[donation.paymentMethod]}</b><small>{donation.files?.length ? 'Proof attached' : donation.isManual ? 'No proof attached' : 'Proof not required'}</small></span><span className="donation-transaction-amount">{formattedAmount(donation.amount)}</span><ChevronRight size={16} />
-      </button>)}</div> : <div className="staff-empty"><HandHeart size={24} /><p>No donation transactions have been recorded yet.</p><Link className="button button-outline" to="/admin/donations?view=logs">Record the first donation <ArrowRight size={14} /></Link></div>}
+      </button>)}</div> : <div className="staff-empty"><HandHeart size={24} /><p>{view === 'verification' ? 'No donations are awaiting verification.' : 'No donation transactions have been recorded yet.'}</p>{view === 'files' && <Link className="button button-outline" to="/admin/donations?view=logs">Record the first donation <ArrowRight size={14} /></Link>}</div>}
     </section>}
     {selectedDonation && <div className="donation-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetails() }} onKeyDown={(event) => { if (event.key === 'Escape') closeDetails() }}>
       <section className="donation-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="donation-detail-title">
         <header><div><span className="eyebrow">DONATION TRANSACTION</span><h2 id="donation-detail-title">{selectedDonation.referenceCode}</h2></div><button type="button" aria-label="Close transaction details" onClick={closeDetails}><X size={18} /></button></header>
-        <dl className="donation-detail-grid"><div><dt>Source</dt><dd>{selectedDonation.isManual ? 'Manual entry' : 'Submitted through donation form'}</dd></div><div><dt>Amount</dt><dd>{formattedAmount(selectedDonation.amount)}</dd></div><div><dt>Payment method</dt><dd>{donationPaymentLabels[selectedDonation.paymentMethod]}</dd></div><div><dt>Donor</dt><dd>{selectedDonation.isAnonymous ? 'Anonymous' : selectedDonation.donorName || 'Not provided'}</dd></div><div><dt>Email</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorEmail || 'Not provided'}</dd></div><div><dt>Phone</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorPhone || 'Not provided'}</dd></div><div><dt>Purpose / fund</dt><dd>{selectedDonation.fund}</dd></div><div><dt>Frequency</dt><dd>{selectedDonation.type === 'MONTHLY' ? 'Monthly' : 'One-time'}</dd></div><div><dt>Payment reference</dt><dd>{selectedDonation.paymentReference || 'Not provided'}</dd></div><div><dt>Status</dt><dd>{selectedDonation.status}</dd></div><div><dt>Date recorded</dt><dd>{new Date(selectedDonation.createdAt).toLocaleString()}</dd></div></dl>
+        <dl className="donation-detail-grid"><div><dt>Source</dt><dd>{selectedDonation.isManual ? 'Manual entry' : 'Submitted through donation form'}</dd></div><div><dt>Amount</dt><dd>{formattedAmount(selectedDonation.amount)}</dd></div><div><dt>Payment method</dt><dd>{donationPaymentLabels[selectedDonation.paymentMethod]}</dd></div><div><dt>Donor</dt><dd>{selectedDonation.isAnonymous ? 'Anonymous' : selectedDonation.donorName || 'Not provided'}</dd></div><div><dt>Email</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorEmail || 'Not provided'}</dd></div><div><dt>Phone</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorPhone || 'Not provided'}</dd></div><div><dt>Purpose / fund</dt><dd>{selectedDonation.fund}</dd></div><div><dt>Frequency</dt><dd>{selectedDonation.type === 'MONTHLY' ? 'Monthly' : 'One-time'}</dd></div><div className="donation-payment-reference"><dt>Payment reference</dt><dd>{selectedDonation.paymentReference || 'Not provided'}</dd></div><div><dt>Status</dt><dd>{selectedDonation.status}</dd></div><div><dt>Date recorded</dt><dd>{new Date(selectedDonation.createdAt).toLocaleString()}</dd></div></dl>
         <div className="donation-detail-proof"><h3>Payment proof</h3>{selectedDonation.files?.length ? selectedDonation.files.map((file) => <div key={file.id}>{file.type === 'application/pdf' ? <a href={file.fileUrl} target="_blank" rel="noreferrer">{file.fileName || 'Open proof document'} <ArrowUpRight size={14} /></a> : <a href={file.fileUrl} target="_blank" rel="noreferrer"><img src={file.fileUrl} alt={file.fileName || 'Donation payment proof'} /><span>{file.fileName || 'View proof image'} <ArrowUpRight size={14} /></span></a>}</div>) : <p>{selectedDonation.isManual ? 'No proof was attached to this manual entry.' : 'Proof is not required for donations submitted through the donation form.'}</p>}</div>
+        {(selectedDonation.status === 'PENDING' || selectedDonation.status === 'RECONCILING') && <footer className="donation-detail-actions"><p>Confirm the payment in your GCash or Maya account before marking it verified.</p><button className="button button-dark" type="button" onClick={() => void verifyDonation()} disabled={updatingStatus}>{updatingStatus ? 'Verifying…' : 'Mark payment as verified'} <Check size={15} /></button></footer>}
       </section>
     </div>}
+  </>
+}
+
+function SystemBackupPage() {
+  const [backupFile, setBackupFile] = useState<File | null>(null)
+  const [importPassword, setImportPassword] = useState('')
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function exportBackup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy('export')
+    setError('')
+    setSuccess('')
+    try {
+      const response = await fetch('/api/admin/system-backup/export', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        const result = await response.json() as { error?: string }
+        throw new Error(result.error || 'The system backup could not be exported.')
+      }
+      const blob = await response.blob()
+      const disposition = response.headers.get('Content-Disposition') || ''
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `carmels-system-backup-${new Date().toISOString().replaceAll(':', '-')}.zip`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.append(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setSuccess(`Encrypted backup exported at ${new Date().toLocaleString()} and saved to your browser's download folder.`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The system backup could not be exported.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function importBackup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    setError('')
+    setSuccess('')
+    if (!backupFile) {
+      setError('Choose a Carmel system backup file first.')
+      return
+    }
+    setBusy('import')
+    try {
+      const content = await backupFile.arrayBuffer()
+      const response = await fetch('/api/admin/system-backup/import', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/zip', 'X-System-Backup-Password': importPassword },
+        body: content,
+      })
+      const result = await readApiResponse<{ mergedRecords: number; skippedRecords: number; backupExportedAt: string; importedAt: string }>(response, 'Importing system backup')
+      setSuccess(`Backup exported at ${new Date(result.backupExportedAt).toLocaleString()} and imported at ${new Date(result.importedAt).toLocaleString()}. ${result.mergedRecords} records merged; ${result.skippedRecords} conflicting records skipped. Existing records were not deleted.`)
+      setBackupFile(null)
+      setImportPassword('')
+      form.reset()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The system backup could not be imported.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return <>
+    <div className="admin-title-row"><div><span className="eyebrow">ADMINISTRATION</span><h1>System backup</h1><p>Export and restore application data with an encrypted backup file.</p></div></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {success && <p className="member-success" role="status">{success}</p>}
+    <section className="system-backup-grid">
+      <article className="admin-panel system-backup-card">
+        <div className="panel-heading"><div><h2>Export backup</h2><p>Download an encrypted copy of application data.</p></div><Download size={19} /></div>
+        <p className="system-backup-description">The export includes accounts, content, donation records and proof files, messages, reading interactions, and audit history. An export timestamp is included and recorded in the Admin audit log.</p>
+        <p className="system-backup-warning">The downloaded ZIP is encrypted with AES-256. Use a ZIP app that supports AES encryption (such as 7-Zip) and the configured backup password to open it. The browser saves the archive in your configured download folder.</p>
+        <form className="system-backup-form" onSubmit={(event) => void exportBackup(event)}>
+          <button className="button button-dark" type="submit" disabled={busy !== null}>{busy === 'export' ? 'Exporting…' : 'Export encrypted backup'} <Download size={15} /></button>
+        </form>
+      </article>
+      <article className="admin-panel system-backup-card">
+        <div className="panel-heading"><div><h2>Import backup</h2><p>Merge a previously exported backup into this database.</p></div><Upload size={19} /></div>
+        <p className="system-backup-description">Import adds missing records and updates matching IDs. It never deletes existing records. Records that conflict with an existing unique value are skipped and counted in the import result.</p>
+        <form className="system-backup-form" onSubmit={(event) => void importBackup(event)}>
+          <label>Backup file<input type="file" accept=".zip,.carmelbackup,application/zip,application/vnd.carmels.backup+json" onChange={(event: ChangeEvent<HTMLInputElement>) => setBackupFile(event.target.files?.[0] || null)} required /></label>
+          <label>Encryption password<input type="password" value={importPassword} onChange={(event) => setImportPassword(event.target.value)} autoComplete="current-password" required /></label>
+          <button className="button button-dark" type="submit" disabled={busy !== null || !backupFile}>{busy === 'import' ? 'Importing…' : 'Import and merge backup'} <Upload size={15} /></button>
+        </form>
+      </article>
+    </section>
   </>
 }
 
@@ -2423,7 +3056,11 @@ const auditActionLabels: Record<string, string> = {
   LOGOUT: 'Signed out',
   UPDATE_PROFILE: 'Updated profile',
   UPDATE_CONTENT: 'Updated website content',
+  DONATION_RECEIVED: 'Donation received',
   RECORD_DONATION: 'Recorded a donation',
+  VERIFY_DONATION: 'Verified a donation payment',
+  SYSTEM_BACKUP_EXPORT: 'Exported system backup',
+  SYSTEM_BACKUP_IMPORT: 'Imported system backup',
   UPDATE_STATUS: 'Updated donation status',
   UPDATE_STAGE: 'Updated discerner stage',
   UPDATE: 'Updated an account',
@@ -2433,6 +3070,15 @@ const auditActionLabels: Record<string, string> = {
 function formatAuditDetails(log: AuditRecord) {
   if (log.action === 'LOGIN') return `Signed in to the administration panel as ${log.user?.role === 'FORMATOR' ? 'Formator' : 'Admin'}.`
   if (log.action === 'LOGOUT') return 'Signed out of the administration panel.'
+  if (log.action === 'DONATION_RECEIVED') {
+    const details = [
+      typeof log.meta?.isAnonymous === 'boolean' && log.meta.isAnonymous ? 'Anonymous donation' : 'Donation',
+      typeof log.meta?.amount === 'number' ? money(log.meta.amount) : null,
+      typeof log.meta?.fund === 'string' ? log.meta.fund : null,
+      typeof log.meta?.referenceCode === 'string' ? `Reference ${log.meta.referenceCode}` : null,
+    ].filter((value): value is string => value !== null)
+    return details.join(' · ')
+  }
   const entries = Object.entries(log.meta || {}).filter(([, value]) => value !== null && value !== undefined && value !== false)
   if (!entries.length) return `${log.entity} record ${log.entityId} was changed.`
   return entries.map(([key, value]) => {
@@ -2454,7 +3100,7 @@ function AuditLogsPage({ user }: { user: PrototypeStaff }) {
       try {
         if (offline) {
           const localLogs = JSON.parse(localStorage.getItem(offlineAuditKey) || '[]') as OfflineAuditEntry[]
-          if (active) setLogs(localLogs.filter((log) => log.user.role === 'ADMIN' || log.user.role === 'FORMATOR'))
+          if (active) setLogs(localLogs.filter((log) => (log.user.role === 'ADMIN' || log.user.role === 'FORMATOR') && (user.role === 'ADMIN' || log.entity !== 'Donation')))
         } else {
           const response = await fetch('/api/admin/audit', { credentials: 'include' })
           const result = await readApiResponse<{ logs: AuditRecord[] }>(response, 'Loading audit activity')
@@ -2469,15 +3115,15 @@ function AuditLogsPage({ user }: { user: PrototypeStaff }) {
     }
     void loadLogs()
     return () => { active = false }
-  }, [offline])
+  }, [offline, user.role])
   return <>
-    <div className="admin-title-row"><div><span className="eyebrow">STAFF ACCOUNTABILITY</span><h1>Audit logs</h1><p>Admin and Formator sign-ins and administrative changes, newest first.</p></div></div>
+    <div className="admin-title-row"><div><span className="eyebrow">STAFF ACCOUNTABILITY</span><h1>Audit logs</h1><p>{user.role === 'ADMIN' ? 'Staff activity and donation records, newest first.' : 'Admin and Formator sign-ins and administrative changes, newest first.'}</p></div></div>
     {error && <p className="form-error" role="alert">{error}</p>}
     <section className="admin-panel audit-log-panel">
-      <div className="panel-heading"><div><h2>Staff activity</h2><p>{logs.length} {logs.length === 1 ? 'activity record' : 'activity records'}</p></div><Clipboard size={19} /></div>
+      <div className="panel-heading"><div><h2>Audit activity</h2><p>{logs.length} {logs.length === 1 ? 'activity record' : 'activity records'}</p></div><Clipboard size={19} /></div>
       {loading ? <div className="staff-empty">Loading audit activity…</div> : logs.length ? <ol className="audit-log-list">{logs.map((log) => <li className="audit-log-entry" key={log.id}>
         <span className={`audit-log-marker ${log.action === 'LOGIN' ? 'login' : log.action === 'LOGOUT' ? 'logout' : 'change'}`} aria-hidden="true">{log.action === 'LOGIN' ? <LogIn size={15} /> : log.action === 'LOGOUT' ? <LogOut size={15} /> : <Pencil size={14} />}</span>
-        <div className="audit-log-content"><div className="audit-log-heading"><b>{log.user?.name || 'Unknown staff member'}</b><span>{log.user?.role || 'Staff'}</span><strong>{auditActionLabels[log.action] || log.action.replaceAll('_', ' ').toLowerCase()}</strong></div><p>{formatAuditDetails(log)}</p><small>{log.user?.email || 'Account unavailable'} · {log.entity}</small></div>
+        <div className="audit-log-content"><div className="audit-log-heading"><b>{log.user?.name || (log.action === 'DONATION_RECEIVED' ? 'Donor' : log.entity === 'SystemBackup' ? 'System backup' : 'Unknown staff member')}</b><span>{log.user?.role || (log.action === 'DONATION_RECEIVED' ? 'DONOR' : log.entity === 'SystemBackup' ? 'SYSTEM' : 'Staff')}</span><strong>{auditActionLabels[log.action] || log.action.replaceAll('_', ' ').toLowerCase()}</strong></div><p>{formatAuditDetails(log)}</p><small>{log.user?.email || (log.action === 'DONATION_RECEIVED' ? 'Donation received' : log.entity === 'SystemBackup' ? 'Encrypted backup' : 'Account unavailable')} · {log.entity}</small></div>
         <time dateTime={log.createdAt}>{new Date(log.createdAt).toLocaleString()}</time>
       </li>)}</ol> : <div className="staff-empty"><Clipboard size={24} /><p>No staff activity has been recorded yet.</p></div>}
     </section>
@@ -2879,7 +3525,7 @@ function PermissionConfirmationHost() {
 }
 
 type ApiConversationMessage = { id: string; senderId: string | null; senderType: 'VISITOR' | 'ADMIN' | 'FORMATOR'; body: string; createdAt: string; sender: { id: string; name: string; role: string } | null }
-type ApiConversation = { id: string; userId: string | null; name: string; email: string; subject: string; category: string; isRead: boolean; lastMessageAt: string; user: { id: string; role: string; isActive: boolean } | null; messages: ApiConversationMessage[] }
+type ApiConversation = { id: string; userId: string | null; name: string; email: string; subject: string; category: string; isRead: boolean; lastMessageAt: string; user: { id: string; role: string; isActive: boolean } | null; staffRecipient?: { id: string; name: string; role: string } | null; messages: ApiConversationMessage[] }
 function DirectMessagesPage({ user }: { user: PrototypeStaff }) {
   const location = useLocation()
   const [selectedId, setSelectedId] = useState(() => new URLSearchParams(location.search).get('conversation') || '')
@@ -2967,9 +3613,9 @@ function DirectMessagesPage({ user }: { user: PrototypeStaff }) {
       <aside className="conversation-list direct-inbox-list">
         <label className="conversation-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search conversations" aria-label="Search conversations" /></label>
         <div className="inbox-tabs direct-message-tabs"><button className={messageFilter === 'All' ? 'active' : ''} onClick={() => setMessageFilter('All')}>All</button><button className={messageFilter === 'Unread' ? 'active' : ''} onClick={() => setMessageFilter('Unread')}>Unread{unreadCount > 0 && <i>{unreadCount}</i>}</button></div>
-        <div className="direct-recipient-list">{loading ? <p className="direct-empty">Loading conversations…</p> : visible.map((conversation) => <button key={conversation.id} className={`conversation-row direct-recipient ${selected?.id === conversation.id ? 'selected' : ''}`} onClick={() => void selectConversation(conversation)}><span className={`avatar ${conversation.userId ? 'gold' : 'green'}`}>{conversation.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><span><b>{conversation.name}</b><small>{conversation.userId ? 'Discerner' : conversation.category === 'DISCERNER' ? 'Vocation inquiry' : 'Contact inquiry'} · {conversation.email}</small><small>{conversation.messages.at(-1)?.body || conversation.subject}</small></span></button>)}{!loading && visible.length === 0 && <p className="direct-empty">No {messageFilter === 'Unread' ? 'unread ' : ''}conversations.</p>}</div>
+        <div className="direct-recipient-list">{loading ? <p className="direct-empty">Loading conversations…</p> : visible.map((conversation) => <button key={conversation.id} className={`conversation-row direct-recipient ${selected?.id === conversation.id ? 'selected' : ''}`} onClick={() => void selectConversation(conversation)}><span className={`avatar ${conversation.userId ? 'gold' : 'green'}`}>{conversation.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><span><b>{conversation.name}</b><small>{conversation.userId ? 'Discerner' : conversation.category === 'DISCERNER' ? 'Vocation inquiry' : 'Contact inquiry'} · {conversation.email}</small>{conversation.staffRecipient && <small>To: {conversation.staffRecipient.name} · {conversation.staffRecipient.role === 'FORMATOR' ? 'Formator' : 'Admin'}</small>}<small>{conversation.messages.at(-1)?.body || conversation.subject}</small></span></button>)}{!loading && visible.length === 0 && <p className="direct-empty">No {messageFilter === 'Unread' ? 'unread ' : ''}conversations.</p>}</div>
       </aside>
-      <div className="direct-thread">{selected ? <><header className="direct-thread-head"><span className={`avatar ${selected.userId ? 'gold' : 'green'}`}>{selected.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><b>{selected.name}</b><small>{selected.userId ? 'Discerner account' : 'Contact inquiry'} · {selected.email}</small><small>{selected.subject}</small></div></header><div className="direct-thread-messages">{selected.messages.length ? selected.messages.map((message) => { const outgoing = message.senderType !== 'VISITOR'; const senderName = outgoing ? message.sender?.name || (message.senderType === 'FORMATOR' ? 'Formator' : 'Federation office') : selected.name; return <article className={`direct-message ${outgoing ? 'outgoing' : ''}`} key={message.id}><b>{outgoing ? `${senderName}${message.sender?.role === 'FORMATOR' ? ' · Formator' : ''}` : senderName}</b><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></article> }) : <p className="direct-empty">No messages in this conversation yet.</p>}</div><form className="direct-compose" onSubmit={send}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={`Reply to ${selected.name}…`} aria-label="Write a reply" maxLength={5000} /><button className="button button-dark" type="submit" aria-label="Send reply" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : <ArrowRight size={15} />}</button></form></> : <div className="direct-empty">{loading ? 'Loading conversations…' : 'Select a conversation to reply.'}</div>}</div>
+      <div className="direct-thread">{selected ? <><header className="direct-thread-head"><span className={`avatar ${selected.userId ? 'gold' : 'green'}`}>{selected.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><b>{selected.name}</b><small>{selected.userId ? 'Discerner account' : 'Contact inquiry'} · {selected.email}</small>{selected.staffRecipient && <small>Addressed to {selected.staffRecipient.name} · {selected.staffRecipient.role === 'FORMATOR' ? 'Formator' : 'Admin'}</small>}<small>{selected.subject}</small></div></header><div className="direct-thread-messages">{selected.messages.length ? selected.messages.map((message) => { const outgoing = message.senderType !== 'VISITOR'; const senderName = outgoing ? message.sender?.name || (message.senderType === 'FORMATOR' ? 'Formator' : 'Federation office') : selected.name; return <article className={`direct-message ${outgoing ? 'outgoing' : ''}`} key={message.id}><b>{outgoing ? `${senderName}${message.sender?.role === 'FORMATOR' ? ' · Formator' : ''}` : senderName}</b><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></article> }) : <p className="direct-empty">No messages in this conversation yet.</p>}</div><form className="direct-compose" onSubmit={send}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={`Reply to ${selected.name}…`} aria-label="Write a reply" maxLength={5000} /><button className="button button-dark" type="submit" aria-label="Send reply" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : <ArrowRight size={15} />}</button></form></> : <div className="direct-empty">{loading ? 'Loading conversations…' : 'Select a conversation to reply.'}</div>}</div>
     </section>
   </>
 }
@@ -3135,7 +3781,7 @@ function AdminPage() {
   if (!user && sessionError) return <div className="admin-loading" role="alert"><p>{sessionError}</p><button className="button button-dark" type="button" onClick={() => setRetrySessionCheck((attempt) => attempt + 1)}>Retry session check</button><Link className="button button-outline" to="/staff/login">Return to sign in</Link></div>
   if (!user) return <Navigate to="/staff/login" replace />
   void MessagesPage
-  return <AdminShell user={user} onUserUpdated={setUser}><Routes><Route index element={user.role === 'ADMIN' ? <DashboardPage /> : <FormatorDashboard user={user} />} /><Route path="messages" element={<DirectMessagesPage user={user} />} /><Route path="updates" element={user.role === 'ADMIN' || user.canManageUpdates ? <UpdatesAdminPage /> : <Navigate to="/admin" replace />} /><Route path="users" element={user.role === 'ADMIN' || user.canManageUsers ? <RoleAwareUsersPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="discerners" element={user.role === 'ADMIN' ? <AdminDiscernmentPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="donations" element={user.role === 'ADMIN' ? <DonationAdminPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="content" element={user.role === 'ADMIN' || user.canManageDetails ? <GenericAdmin title="Manage details" /> : <Navigate to="/admin" replace />} /><Route path="audit" element={user.role === 'ADMIN' || user.role === 'FORMATOR' ? <AuditLogsPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="*" element={user.role === 'ADMIN' ? <DashboardPage /> : <FormatorDashboard user={user} />} /></Routes></AdminShell>
+  return <AdminShell user={user} onUserUpdated={setUser}><Routes><Route index element={user.role === 'ADMIN' ? <DashboardPage /> : <FormatorDashboard user={user} />} /><Route path="messages" element={<DirectMessagesPage user={user} />} /><Route path="updates" element={user.role === 'ADMIN' || user.canManageUpdates ? <UpdatesAdminPage /> : <Navigate to="/admin" replace />} /><Route path="users" element={user.role === 'ADMIN' || user.canManageUsers ? <RoleAwareUsersPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="discerners" element={user.role === 'ADMIN' ? <AdminDiscernmentPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="donations" element={user.role === 'ADMIN' ? <DonationAdminPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="content" element={user.role === 'ADMIN' || user.canManageDetails ? <GenericAdmin title="Manage details" /> : <Navigate to="/admin" replace />} /><Route path="system-backup" element={user.role === 'ADMIN' ? <SystemBackupPage /> : <Navigate to="/admin" replace />} /><Route path="audit" element={user.role === 'ADMIN' || user.role === 'FORMATOR' ? <AuditLogsPage user={user} /> : <Navigate to="/admin" replace />} /><Route path="*" element={user.role === 'ADMIN' ? <DashboardPage /> : <FormatorDashboard user={user} />} /></Routes></AdminShell>
 }
 function AppRoutes() {
   return <Routes>
