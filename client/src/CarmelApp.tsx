@@ -26,6 +26,7 @@ import './login-reference.css'
 import './donation-payment.css'
 import './discernment-reference.css'
 import './carmelights-reference.css'
+import './mobile-experience.css'
 import HomepageReference from './HomepageReference'
 import { homeSectionCards, type HomeSectionKey } from './home-section-cards'
 
@@ -226,7 +227,7 @@ const memberSessionKey = 'carmel-member-session'
 const memberSessionUpdatedEvent = 'carmel-member-session-updated'
 const directThreadsUpdatedEvent = 'carmel-direct-threads-updated'
 type MemberGender = 'MALE' | 'FEMALE' | 'ANONYMOUS'
-type MemberAccount = { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: 'USER'; prototype?: boolean }
+type MemberAccount = { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: 'USER'; prototype?: boolean; discernmentTrackingEnabled?: boolean }
 function parseMemberGender(value: string): MemberGender {
   return value === 'MALE' || value === 'FEMALE' ? value : 'ANONYMOUS'
 }
@@ -234,12 +235,24 @@ type MemberDonation = { referenceCode: string; amount: number; paymentMethod: st
 type DiscernmentStage = 'EXPLORING' | 'PRAYING_AND_LEARNING' | 'READY_TO_VISIT' | 'IN_CONVERSATION'
 type MemberDiscernment = { monastery: string; stage: DiscernmentStage; note: string; updatedAt?: string }
 const discernmentStages: Array<{ id: DiscernmentStage; label: string; description: string }> = [
-  { id: 'EXPLORING', label: 'Exploring', description: 'Learning about the Carmelite way of life.' },
-  { id: 'PRAYING_AND_LEARNING', label: 'Praying and learning', description: 'Taking time for prayer, reflection, and conversation.' },
-  { id: 'READY_TO_VISIT', label: 'Ready to visit', description: 'Preparing to meet a community in person.' },
-  { id: 'IN_CONVERSATION', label: 'In conversation', description: 'Discerning with a Carmelite community.' },
+  { id: 'EXPLORING', label: 'Exploring the Call', description: 'Beginning to learn about Carmel and notice what draws you to this way of life.' },
+  { id: 'PRAYING_AND_LEARNING', label: 'Prayerful Discernment', description: 'Making room for prayer, learning, and trusted guidance.' },
+  { id: 'READY_TO_VISIT', label: 'Preparing to Meet a Community', description: 'Reaching out to a community and considering a visit or conversation.' },
+  { id: 'IN_CONVERSATION', label: 'Discerning with a Community', description: 'Talking with the sisters about your questions and possible next steps.' },
 ]
 const discernmentUpdatedEvent = 'carmel-discernment-updated'
+const discernmentTrackingEvent = 'carmel-discernment-tracking-updated'
+const discernmentCriteriaDefault = {
+  readingWordsPerMinute: 200,
+  readingCompletionPercent: 80,
+  transitions: [
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+  ],
+}
+type DiscernmentCriteria = typeof discernmentCriteriaDefault
+type DiscernmentMetrics = { activeSiteMinutes: number; completedTeachings: number; prayerReflections: number; communityMessages: number }
 function normalizeDiscernmentStage(stage: string): DiscernmentStage {
   const normalized = stage.toUpperCase().replaceAll(' ', '_')
   if (normalized === 'IN_CONVERSATION_WITH_A_COMMUNITY') return 'IN_CONVERSATION'
@@ -253,6 +266,128 @@ function saveMemberSession(account: MemberAccount | null) {
   if (account) localStorage.setItem(memberSessionKey, JSON.stringify(account))
   else localStorage.removeItem(memberSessionKey)
   window.dispatchEvent(new Event(memberSessionUpdatedEvent))
+}
+function useCurrentMember() {
+  const [member, setMember] = useState(readMemberSession)
+  useEffect(() => {
+    const refresh = () => setMember(readMemberSession())
+    window.addEventListener(memberSessionUpdatedEvent, refresh)
+    window.addEventListener('storage', refresh)
+    return () => {
+      window.removeEventListener(memberSessionUpdatedEvent, refresh)
+      window.removeEventListener('storage', refresh)
+    }
+  }, [])
+  return member
+}
+function useDiscernmentTrackingEnabled(member: MemberAccount | null) {
+  const [status, setStatus] = useState(() => ({
+    email: member?.email || '',
+    enabled: Boolean(member?.discernmentTrackingEnabled),
+  }))
+  const memberEmail = member?.email || ''
+  const enabled = Boolean(memberEmail && status.email === memberEmail && status.enabled)
+  useEffect(() => {
+    let active = true
+    if (!memberEmail || member?.prototype) return
+    const refresh = (event?: Event) => {
+      if (event instanceof CustomEvent && typeof event.detail === 'boolean') {
+        setStatus({ email: memberEmail, enabled: event.detail })
+        return
+      }
+      void fetch('/api/discernment/tracking-status', { credentials: 'include' }).then(async (response) => {
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Discernment tracking status could not be loaded.')
+        if (active) setStatus({ email: memberEmail, enabled: result.enabled === true })
+      }).catch((error: unknown) => {
+        if (active) setStatus({ email: memberEmail, enabled: false })
+        console.error('Unable to load discernment tracking status.', error)
+      })
+    }
+    refresh()
+    window.addEventListener(discernmentTrackingEvent, refresh)
+    return () => {
+      active = false
+      window.removeEventListener(discernmentTrackingEvent, refresh)
+    }
+  }, [memberEmail, member?.prototype])
+  return enabled
+}
+function useDiscernmentActivityTimer(enabled: boolean, type: 'SITE_TIME' | 'READING_TIME', readingId?: string) {
+  useEffect(() => {
+    if (!enabled || (type === 'READING_TIME' && !readingId)) return
+    const idleTimeout = 10 * 60 * 1000
+    const flushInterval = 30_000
+    let lastCountedAt = Date.now()
+    let activeUntil = document.visibilityState === 'visible' ? lastCountedAt + idleTimeout : 0
+    let pendingMilliseconds = 0
+    function accumulate(now: number) {
+      if (!activeUntil) return
+      const end = Math.min(now, activeUntil)
+      if (end > lastCountedAt) pendingMilliseconds += end - lastCountedAt
+      lastCountedAt = Math.max(lastCountedAt, end)
+      if (now >= activeUntil) activeUntil = 0
+    }
+    function sendPending() {
+      const seconds = Math.min(60, Math.floor(pendingMilliseconds / 1000))
+      if (!seconds) return
+      pendingMilliseconds -= seconds * 1000
+      void fetch('/api/discernment/activity', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          seconds,
+          dedupeKey: crypto.randomUUID(),
+          ...(type === 'READING_TIME' ? { readingId } : {}),
+        }),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error((await response.json()).error || 'Discernment activity could not be recorded.')
+      }).catch((error: unknown) => console.error('Unable to record discernment activity.', error))
+    }
+    function onInteraction() {
+      const now = Date.now()
+      accumulate(now)
+      lastCountedAt = now
+      activeUntil = document.visibilityState === 'visible' ? now + idleTimeout : 0
+    }
+    function onVisibilityChange() {
+      const now = Date.now()
+      if (document.visibilityState === 'hidden') {
+        accumulate(now)
+        activeUntil = 0
+        lastCountedAt = now
+        sendPending()
+      } else {
+        lastCountedAt = now
+        activeUntil = 0
+      }
+    }
+    const timer = window.setInterval(() => {
+      accumulate(Date.now())
+      sendPending()
+    }, flushInterval)
+    for (const eventName of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll']) {
+      document.addEventListener(eventName, onInteraction, { passive: true })
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      accumulate(Date.now())
+      sendPending()
+      window.clearInterval(timer)
+      for (const eventName of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll']) {
+        document.removeEventListener(eventName, onInteraction)
+      }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [enabled, type, readingId])
+}
+function DiscernmentSiteActivityTracker() {
+  const member = useCurrentMember()
+  const trackingEnabled = useDiscernmentTrackingEnabled(member)
+  useDiscernmentActivityTimer(trackingEnabled, 'SITE_TIME')
+  return null
 }
 function memberDonationKey(email: string) { return `carmel-member-donations:${email.toLowerCase()}` }
 function memberFavoriteKey(email: string) { return `carmel-member-favorites:${email.toLowerCase()}` }
@@ -767,31 +902,57 @@ function CarmelifePage() {
 const discernmentGuideStages = [
   {
     id: 'EXPLORING',
-    title: 'Exploring',
-    subtitle: 'Get to know Carmel and your own hopes.',
+    title: 'Exploring the Call',
+    transition: 'Starting point · everyone begins here',
+    subtitle: 'Begin by learning about Carmel and noticing what draws you to this life.',
     guidance: ['Read about the Carmelite way of life and the monasteries.', 'Notice what draws you to prayer, community, and a hidden life of service.', 'Give yourself time; curiosity does not require an immediate decision.'],
   },
   {
     id: 'PRAYING_AND_LEARNING',
-    title: 'Praying and learning',
-    subtitle: 'Make room for prayer, questions, and trusted guidance.',
-    guidance: ['Build a simple, steady habit of personal prayer.', 'Read Scripture and learn about Carmelite saints and spirituality.', 'Talk with a trusted spiritual director or vocation contact about your questions.'],
+    title: 'Prayerful Discernment',
+    transition: 'From exploring the call',
+    subtitle: 'To take this next step, begin exploring the call through prayer, learning, and guidance.',
+    guidance: ['Set a regular, realistic time for personal prayer.', 'Read Scripture and learn about Carmelite life and spirituality.', 'Bring your questions to a trusted spiritual director or vocation contact.'],
   },
   {
     id: 'READY_TO_VISIT',
-    title: 'Ready to visit',
-    subtitle: 'When you feel ready, arrange a conversation or visit.',
-    guidance: ['Choose a community you would like to learn about.', 'Use the contact page to ask about a suitable time and visit arrangements.', 'Bring your questions and allow time to experience the community’s rhythm.'],
+    title: 'Preparing to Meet a Community',
+    transition: 'From prayerful discernment',
+    subtitle: 'When you feel ready to meet the sisters, take a first step toward connecting with a community.',
+    guidance: ['Choose a Carmelite community you would like to know better.', 'Reach out through the contact page to ask about a conversation or visit.', 'Share what you are seeking and ask any questions about arrangements.'],
   },
   {
     id: 'IN_CONVERSATION',
-    title: 'In conversation',
-    subtitle: 'Discern together with a Carmelite community.',
-    guidance: ['Stay open and honest in conversations with the community.', 'Discuss your readiness, questions, and next steps with the sisters.', 'Take each step freely; there is no need to rush a decision.'],
+    title: 'Discerning with a Community',
+    transition: 'From first contact or a visit',
+    subtitle: 'As you get to know the community, continue the discernment together with the sisters.',
+    guidance: ['Keep in touch and take part in conversations or visits as arranged.', 'Talk openly with the sisters about your hopes, questions, and readiness.', 'Ask together what a suitable next step might be; there is no need to rush.'],
   },
 ] as const
 
+function getDiscernmentRequirementLabels(transition: DiscernmentCriteria['transitions'][number]) {
+  return [
+    transition.activeSiteMinutes > 0 ? `${transition.activeSiteMinutes} active minutes on the website` : '',
+    transition.completedTeachings > 0 ? `${transition.completedTeachings} completed teachings` : '',
+    transition.prayerReflections > 0 ? `${transition.prayerReflections} prayer or reflection check-ins` : '',
+    transition.communityMessages > 0 ? `${transition.communityMessages} messages sent to the Federation` : '',
+  ].filter(Boolean)
+}
+
 function DiscernmentGuidePage() {
+  const [criteria, setCriteria] = useState<DiscernmentCriteria | null>(null)
+  const [criteriaError, setCriteriaError] = useState('')
+  useEffect(() => {
+    let active = true
+    fetch('/api/discernment/criteria').then(async (response) => {
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Discernment milestones could not be loaded.')
+      if (active) setCriteria(result.criteria)
+    }).catch((reason: unknown) => {
+      if (active) setCriteriaError(reason instanceof Error ? reason.message : 'Discernment milestones could not be loaded.')
+    })
+    return () => { active = false }
+  }, [])
   return <main className="discernment-guide-page">
     <section className="discernment-guide-hero">
       <span className="eyebrow">A COMPANION FOR YOUR JOURNEY</span>
@@ -805,19 +966,47 @@ function DiscernmentGuidePage() {
 
     <section className="discernment-guide-content" aria-labelledby="discernment-stages-title">
       <div className="discernment-guide-heading">
-        <span className="eyebrow">TAKE THE NEXT GENTLE STEP</span>
-        <h2 id="discernment-stages-title">Guides for each part of the journey</h2>
-        <p>There is no single pace or perfect checklist. Use the suggestions that help you listen, learn, and grow in freedom.</p>
+        <span className="eyebrow">A GENTLE PATH OF DISCERNMENT</span>
+        <h2 id="discernment-stages-title">Possible next steps on your journey</h2>
+        <p>Everyone begins by exploring. These are guideposts, not requirements or a test—take the next step when it feels right, with guidance from the community.</p>
+        {criteria && <p className="discernment-guide-reading-note">A teaching counts after at least {criteria.readingCompletionPercent}% of its estimated reading time, based on {criteria.readingWordsPerMinute} words per minute. Activity pauses when the tab is hidden and stops after 10 minutes without interaction.</p>}
       </div>
       <div className="discernment-guide-stage-list">
         {discernmentGuideStages.map((stage, index) => <article className="discernment-guide-stage" key={stage.id}>
           <span className="discernment-guide-stage-number">0{index + 1}</span>
           <div>
+            <span className="discernment-guide-stage-transition">{stage.transition}</span>
             <h3>{stage.title}</h3>
             <p>{stage.subtitle}</p>
             <ul>{stage.guidance.map((item) => <li key={item}><Check size={16} />{item}</li>)}</ul>
+            <div className="discernment-guide-milestones">
+              <b>{index < 3 ? `Milestones for ${discernmentGuideStages[index + 1].title}` : 'What comes next'}</b>
+              {index === 3 ? <p>Continue discerning with the sisters; there is no further automatic stage.</p>
+                : criteriaError ? <p role="alert">Milestones are unavailable: {criteriaError}</p>
+                  : !criteria ? <p>Loading milestones…</p>
+                    : getDiscernmentRequirementLabels(criteria.transitions[index]).length
+                      ? <ul>{getDiscernmentRequirementLabels(criteria.transitions[index]).map((requirement) => <li key={requirement}>{requirement}</li>)}</ul>
+                      : <p>The Federation has not set milestones for this next stage yet.</p>}
+            </div>
           </div>
         </article>)}
+      </div>
+    </section>
+
+    <section className="discernment-vocation-requirements" aria-labelledby="vocation-requirements-title">
+      <div className="discernment-guide-heading">
+        <span className="eyebrow">A GENERAL GUIDE</span>
+        <h2 id="vocation-requirements-title">Requirements for discerning a vocation</h2>
+        <p>These are general guidelines for women considering a Carmelite vocation. They are a starting point for conversation, not an automatic decision about your suitability.</p>
+      </div>
+      <div className="discernment-requirements-box">
+        <ol className="discernment-requirements-list">
+          <li><span>01</span><div><h3>Age</h3><p>Generally 25 to 35 years old. A monastery may consider someone younger or older; acceptance outside this range depends on the individual monastery.</p></div></li>
+          <li><span>02</span><div><h3>Education</h3><p>A college graduate.</p></div></li>
+          <li><span>03</span><div><h3>Physical and mental well-being</h3><p>Good physical and mental health to participate in the prayer, work, and shared life of the community. The monastery considers each person’s circumstances individually.</p></div></li>
+          <li><span>04</span><div><h3>Readiness for enclosed community life</h3><p>A capacity and willingness to live an enclosed life of prayer, silence, solitude, and sacrifice in community.</p></div></li>
+          <li><span>05</span><div><h3>A call to Carmel</h3><p>A sincere sense of being called to the Carmelite way of life, explored through prayer and discernment with the sisters.</p></div></li>
+        </ol>
       </div>
     </section>
 
@@ -834,14 +1023,14 @@ function DiscernmentGuidePage() {
     <section className="discernment-guide-practical">
       <div className="discernment-guide-practical-image"><img src={practicalAidsImage} alt="A woman praying in a chapel" /></div>
       <div className="discernment-guide-practical-content">
-        <span className="eyebrow">PRACTICAL STEPS FOR DISCERNMENT</span>
+        <span className="eyebrow">PRACTICAL AIDS FOR DISCERNMENT</span>
         <ol>{discernmentSteps.map((step, index) => <li key={step}><b>{index + 1}</b>{step}</li>)}</ol>
         <Link className="button button-outline" to="/account/discernment">Explore your discernment journey <ArrowRight size={15} /></Link>
       </div>
     </section>
 
     <aside className="discernment-guide-note">
-      <div><span className="eyebrow">YOUR JOURNEY IN THIS SYSTEM</span><h2>Progress is a conversation, not a score.</h2><p>Your account shows four stages: Exploring, Praying and learning, Ready to visit, and In conversation. You can save your community of interest and private notes in your account. A Federation sister updates your stage as you continue discerning together—there are no points or deadlines.</p></div>
+      <div><span className="eyebrow">YOUR JOURNEY IN THIS SYSTEM</span><h2>Progress is a conversation, not a score.</h2><p>Your account follows four guideposts: Exploring the Call, Prayerful Discernment, Preparing to Meet a Community, and Discerning with a Community. Everyone begins by exploring. The Federation sets transparent engagement milestones, and your stage advances automatically when you meet them. These milestones show site engagement, not spiritual readiness; there are no points or deadlines.</p></div>
       <Link className="button button-dark" to="/account/discernment">Open my discernment progress <ArrowRight size={16} /></Link>
     </aside>
   </main>
@@ -855,6 +1044,7 @@ function StoryPage({ kind }: { kind: 'life' | 'stories' | 'updates' }) {
   const [teachingQuery, setTeachingQuery] = useState('')
   const [teachingCategory, setTeachingCategory] = useState('All')
   const member = readMemberSession()
+  const trackingEnabled = useDiscernmentTrackingEnabled(member)
   const navigate = useNavigate()
   const [favorites, setFavorites] = useState<string[]>(() => member ? readMemberFavorites(member.email) : [])
   const isLife = kind === 'life'
@@ -880,6 +1070,7 @@ function StoryPage({ kind }: { kind: 'life' | 'stories' | 'updates' }) {
       if (!response.ok) throw new Error((await response.json()).error || 'The reading view could not be recorded.')
     }).catch((error: unknown) => console.error('Unable to record Carmelights view.', error))
   }, [isLife, kind, selectedId])
+  useDiscernmentActivityTimer(trackingEnabled && !isLife && kind !== 'updates' && Boolean(selectedId), 'READING_TIME', selectedId || undefined)
   if (kind === 'updates') return <LegacyStoryPage kind={kind} />
   function toggleFavorite(id: string) {
     if (!member) { navigate('/account/login'); return }
@@ -1020,7 +1211,7 @@ function DonationsPage() {
     try {
       const saved = JSON.parse(sessionStorage.getItem('carmel-gift') || '{}') as Partial<Donation> & { frequency?: string }
       delete saved.frequency
-      return { ...initialDonation, ...saved, payment: saved.payment === 'BANK' || saved.payment === 'CARD' ? 'GCASH' : saved.payment ?? initialDonation.payment }
+      return { ...initialDonation, ...saved, payment: saved.payment ?? initialDonation.payment }
     } catch { return initialDonation }
   })
   const [step, setStep] = useState(0)
@@ -1030,12 +1221,67 @@ function DonationsPage() {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [showCustom, setShowCustom] = useState(false)
+  const [xenditEnabled, setXenditEnabled] = useState(false)
+  const [checkoutStarting, setCheckoutStarting] = useState(false)
   const amount = gift.custom ? Number(gift.custom) || 0 : gift.amount
   useEffect(() => { sessionStorage.setItem('carmel-gift', JSON.stringify(gift)) }, [gift])
+  useEffect(() => {
+    let active = true
+    fetch('/api/health').then(async (response) => {
+      if (!response.ok) throw new Error('The donation service is unavailable.')
+      return await response.json() as { xenditEnabled?: boolean }
+    }).then((service) => {
+      if (active) setXenditEnabled(service.xenditEnabled === true)
+    }).catch(() => {
+      if (active) setXenditEnabled(false)
+    })
+    return () => { active = false }
+  }, [])
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const checkoutResult = params.get('xendit')
+    const reference = params.get('reference')
+    if (checkoutResult === 'cancelled') {
+      setError('Checkout was canceled. Your donation has not been marked as paid.')
+      window.history.replaceState({}, '', window.location.pathname)
+      return
+    }
+    if (checkoutResult !== 'success' || !reference) return
+    let active = true
+    fetch(`/api/donations/${encodeURIComponent(reference)}`).then(async (response) => {
+      const result = await response.json() as { donation?: { status?: string }; error?: string }
+      if (!response.ok) throw new Error(result.error || 'Could not load the donation status.')
+      return result
+    }).then((result) => {
+      if (!active || !result.donation?.status) return
+      setReceiptCode(reference)
+      setDonationStatus(result.donation.status)
+      setVerificationNoticeOpen(result.donation.status !== 'COMPLETED')
+      window.history.replaceState({}, '', window.location.pathname)
+    }).catch((reason) => {
+      if (active) setError(reason instanceof Error ? reason.message : 'Could not load the donation status.')
+    })
+    return () => { active = false }
+  }, [])
   function next() { setError(''); if (step === 0 && amount < 50) return setError('Please choose an amount of at least ₱50.'); if (step === 2 && !gift.anonymous && (!gift.name.trim() || !gift.email.includes('@'))) return setError('Please provide your name and a valid email address.'); if (step === 2 && gift.receipt && !gift.email.trim().includes('@')) return setError('Enter a valid email address for your acknowledgment receipt.'); setStep(Math.min(step + 1, 3)) }
   async function complete() {
     setError('')
     const fund = giftLabels[giftAmounts.indexOf(amount)] || 'Federation formation program'
+    if (xenditEnabled) {
+      setCheckoutStarting(true)
+      try {
+        const response = await fetch('/api/donations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...gift, amount, fund }) })
+        const result = await readApiResponse<{ invoiceUrl?: string }>(response, 'Starting secure checkout')
+        if (!result.invoiceUrl) throw new Error('Xendit did not return a checkout link. Please try again.')
+        window.location.assign(result.invoiceUrl)
+      } catch (reason) {
+        setError(reason instanceof TypeError
+          ? 'Could not reach the donation API. Make sure npm run dev is running, then try again.'
+          : reason instanceof Error ? reason.message : 'Could not start secure checkout.')
+        setCheckoutStarting(false)
+      }
+      return
+    }
     try {
       const response = await fetch('/api/donations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...gift, amount, fund }) })
       const result = await response.json()
@@ -1052,8 +1298,8 @@ function DonationsPage() {
     } catch (reason) {
       try {
         const health = await fetch('/api/health')
-        const service = health.ok ? await health.json() as { demoAuthEnabled?: boolean } : null
-        if (!service?.demoAuthEnabled) throw reason
+        const service = health.ok ? await health.json() as { demoAuthEnabled?: boolean; xenditConfigured?: boolean } : null
+        if (!service?.demoAuthEnabled || service.xenditConfigured) throw reason
         const referenceCode = `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
         const createdAt = new Date().toISOString()
         const record: AdminDonationRecord = {
@@ -1093,9 +1339,9 @@ function DonationsPage() {
   return <div className="donations-page"><section className="donation-heading"><span className="eyebrow">SHARE YOUR BLESSINGS</span><h1>Your generosity helps<br />formation <em>flourish.</em></h1><p>Your donation supports the formation program of the Federation. Thank you for your generosity.</p><blockquote>“Bring the whole tithe into the storehouse, that there may be food in my house. Test me in this, says the Lord Almighty...”<small>MALACHI 3:10</small></blockquote></section>
     {!receiptCode ? <section className="donation-card"><div className="donation-card-head"><span>GIFT DETAILS</span><b>STEP {step + 1} <i>OF 4</i></b></div><div className="stepper">{steps.map((name, i) => <div className={`step-node ${i < step ? 'done' : ''} ${i === step ? 'current' : ''}`} key={name}><span>{i < step ? <Check size={14} /> : i + 1}</span><small>{name}</small></div>)}</div><div className="donation-step">
       {step === 0 && <><span className="eyebrow">STEP ONE</span><h2>Select your offering</h2><p>Choose a suggested gift or enter your own preferred amount.</p><div className="amount-grid">{giftAmounts.map((value, i) => <button className={`amount-option ${!gift.custom && gift.amount === value ? 'selected' : ''}`} key={value} onClick={() => setGift({ ...gift, amount: value, custom: '' })}>{i === 1 && <span className="amount-badge">MOST FREQUENT</span>}<strong>{money(value).replace('.00', '')}</strong><small>{giftLabels[i]}</small></button>)}</div><button className="custom-toggle" onClick={() => setShowCustom(!showCustom)}>{showCustom ? '− Hide custom amount' : '+ Enter a different amount'}</button>{showCustom && <label className="input-label">Your amount (minimum ₱50)<span className="currency-input"><b>₱</b><input type="number" min={50} value={gift.custom} onChange={(e) => setGift({ ...gift, custom: e.target.value })} placeholder="0.00" /></span></label>}<div className="selected-offering">Selected one-time offering <b>{money(amount)}</b></div></>}
-      {step === 1 && <><span className="eyebrow">STEP TWO</span><h2>Choose payment method</h2><p>Select the channel you find most comfortable and familiar.</p><div className="payment-options">{[['GCASH', 'G', 'GCash mobile wallet', 'Send via QR code or mobile number'], ['MAYA', 'M', 'Maya (PayMaya)', 'Send via Maya QR code or account'], ['BANK', '⌂', 'Bank transfer', 'Currently unavailable'], ['CARD', '▣', 'Debit / credit card', 'Currently unavailable']].map(([id, symbol, title, desc]) => { const unavailable = id === 'BANK' || id === 'CARD'; return <button key={id} type="button" disabled={unavailable} aria-disabled={unavailable} className={`payment-option ${gift.payment === id ? 'selected' : ''}${unavailable ? ' unavailable' : ''}`} onClick={() => { if (!unavailable) setGift({ ...gift, payment: id as Donation['payment'] }) }}><span className={`payment-symbol ${id.toLowerCase()}`}>{symbol}</span><span><b>{title}</b><small>{desc}</small></span>{unavailable ? <i className="payment-unavailable-label">Unavailable</i> : <i className="radio-dot" />}</button> })}</div></>}
+      {step === 1 && <><span className="eyebrow">STEP TWO</span><h2>Choose payment method</h2><p>{xenditEnabled ? 'Choose a method for secure payment through Xendit.' : 'Select the channel you find most comfortable and familiar.'}</p><div className="payment-options">{[['GCASH', 'G', 'GCash mobile wallet', 'Send via QR code or mobile number'], ['MAYA', 'M', 'Maya (PayMaya)', 'Send via Maya QR code or account'], ['BANK', '⌂', 'Bank transfer', xenditEnabled ? 'Pay securely through Xendit' : 'Currently unavailable'], ['CARD', '▣', 'Debit / credit card', xenditEnabled ? 'Pay securely through Xendit' : 'Currently unavailable']].map(([id, symbol, title, desc]) => { const unavailable = !xenditEnabled && (id === 'BANK' || id === 'CARD'); return <button key={id} type="button" disabled={unavailable} aria-disabled={unavailable} className={`payment-option ${gift.payment === id ? 'selected' : ''}${unavailable ? ' unavailable' : ''}`} onClick={() => { if (!unavailable) setGift({ ...gift, payment: id as Donation['payment'] }) }}><span className={`payment-symbol ${id.toLowerCase()}`}>{symbol}</span><span><b>{title}</b><small>{desc}</small></span>{unavailable ? <i className="payment-unavailable-label">Unavailable</i> : <i className="radio-dot" />}</button> })}</div></>}
       {step === 2 && <><span className="eyebrow">STEP THREE</span><h2>Donor information</h2><p>You may offer this quietly without leaving your name, or share your name.</p><div className="anonymous-options"><button className={gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: true })}><ShieldCheck /><b>Give anonymously</b><small>No name stored</small></button><button className={!gift.anonymous ? 'selected' : ''} onClick={() => setGift({ ...gift, anonymous: false })}><User /><b>Include my name</b><small>For monastery records</small></button></div>{!gift.anonymous && <div className="donor-fields"><label>Your name<input value={gift.name} onChange={(e) => setGift({ ...gift, name: e.target.value })} placeholder="Full name" /></label><label>Email address<input type="email" value={gift.email} onChange={(e) => setGift({ ...gift, email: e.target.value })} placeholder="you@example.com" /></label><label>Phone number<input type="tel" value={gift.phone} onChange={(e) => setGift({ ...gift, phone: e.target.value })} placeholder="+63" /></label></div>}<label className="check-row"><input type="checkbox" checked={gift.receipt} onChange={(e) => setGift({ ...gift, receipt: e.target.checked })} /><span>Send acknowledgment receipt by Email <small>(Optional)</small></span></label>{gift.receipt && gift.anonymous && <div className="donor-fields receipt-email-fields"><label>Email address for acknowledgment receipt<input type="email" value={gift.email} onChange={(e) => setGift({ ...gift, email: e.target.value })} placeholder="you@example.com" autoComplete="email" /></label></div>}</>}
-      {step === 3 && <><span className="eyebrow">STEP FOUR</span><h2>Review & complete</h2><p>Please check the details below and send your offering.</p><div className="review-box"><div><small>OFFERING AMOUNT</small><strong>{money(amount)}</strong></div><div><small>PAYMENT CHANNEL</small><b>{gift.payment}</b></div><div><small>DONOR</small><b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></div></div>{gift.payment === 'CARD' ? <div className="notice">Card checkout is coming soon. Select another payment method to continue.</div> : <div className="payment-instructions"><div className="qr-placeholder"><span>SCAN<br />TO GIVE</span><i>GCASH · MAYA</i></div><div><small>ACCOUNT</small><b>FEDERATION OF DISCALCED CARMELITE NUNS</b><div className="account-number">0921-419-2267 <button onClick={() => { navigator.clipboard?.writeText('0921-419-2267'); setCopied(true); setTimeout(() => setCopied(false), 1600) }} aria-label="Copy account number">{copied ? <Check size={15} /> : <Clipboard size={15} />}{copied ? 'Copied!' : 'Copy'}</button></div></div><label>Payment reference number <small>(optional)</small><input value={gift.reference} onChange={(e) => setGift({ ...gift, reference: e.target.value })} placeholder="From your GCash / bank SMS" /></label><button className="button button-gold full-button" onClick={complete}>I have sent {money(amount)} <ArrowRight size={16} /></button></div>}</>}{error && <p className="form-error">{error}</p>}</div><div className="donation-card-foot"><button className="button button-outline" disabled={step === 0} onClick={() => { setError(''); setStep(Math.max(0, step - 1)) }}><ArrowLeft size={15} /> Back</button><span>{steps[step]}</span>{step < 3 && <button className="button button-dark" onClick={next}>Continue <ArrowRight size={15} /></button>}</div></section> : <section className="confirmation-card"><span className="confirm-icon"><Check /></span><span className="eyebrow">{donationStatus === 'COMPLETED' ? 'DONATION CONFIRMED' : 'DONATION PENDING VERIFICATION'}</span><h2>{donationStatus === 'COMPLETED' ? 'Thank you for your generosity.' : 'Your donation is being verified.'}</h2><p>{donationStatus === 'COMPLETED' ? 'Your test donation has been marked as completed.' : 'Thank you for letting us know that you have sent your offering. The Federation will review your payment and update its status once it has been verified.'}</p><div className="receipt"><b>DONATION ACKNOWLEDGMENT</b><strong>{receiptCode}</strong><span>Beneficiary <b>Discalced Carmelite Nuns</b></span><span>Offering amount <b>{money(amount)}</b></span><span>Payment method <b>{gift.payment}</b></span><span>Donor <b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></span><span>Status <b>{donationStatus === 'COMPLETED' ? 'Completed' : 'Pending verification'}</b></span><span>Date <b>{new Date().toLocaleDateString('en-PH')}</b></span></div><div className="confirmation-actions"><button className="button button-outline" onClick={() => window.print()}><FileText size={16} /> Print acknowledgment</button><button className="button button-dark" onClick={() => { setReceiptCode(''); setDonationStatus(''); setVerificationNoticeOpen(false); setStep(0); setGift(initialDonation); sessionStorage.removeItem('carmel-gift') }}>Make another offering <ArrowRight size={15} /></button></div></section>}
+      {step === 3 && <><span className="eyebrow">STEP FOUR</span><h2>Review & complete</h2><p>Please check the details below and send your offering.</p><div className="review-box"><div><small>OFFERING AMOUNT</small><strong>{money(amount)}</strong></div><div><small>PAYMENT CHANNEL</small><b>{gift.payment}</b></div><div><small>DONOR</small><b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></div></div>{xenditEnabled ? <div className="payment-instructions xendit-checkout"><p>You’ll continue to Xendit’s secure checkout to complete your test payment.</p><button className="button button-gold full-button" disabled={checkoutStarting} onClick={complete}>{checkoutStarting ? 'Opening secure checkout…' : 'Continue to secure checkout'} <ArrowRight size={16} /></button></div> : gift.payment === 'CARD' ? <div className="notice">Card checkout is coming soon. Select another payment method to continue.</div> : <div className="payment-instructions"><div className="qr-placeholder"><span>SCAN<br />TO GIVE</span><i>GCASH · MAYA</i></div><div><small>ACCOUNT</small><b>FEDERATION OF DISCALCED CARMELITE NUNS</b><div className="account-number">0921-419-2267 <button onClick={() => { navigator.clipboard?.writeText('0921-419-2267'); setCopied(true); setTimeout(() => setCopied(false), 1600) }} aria-label="Copy account number">{copied ? <Check size={15} /> : <Clipboard size={15} />}{copied ? 'Copied!' : 'Copy'}</button></div></div><label>Payment reference number <small>(optional)</small><input value={gift.reference} onChange={(e) => setGift({ ...gift, reference: e.target.value })} placeholder="From your GCash / bank SMS" /></label><button className="button button-gold full-button" onClick={complete}>I have sent {money(amount)} <ArrowRight size={16} /></button></div>}</>}{error && <p className="form-error">{error}</p>}</div><div className="donation-card-foot"><button className="button button-outline" disabled={step === 0} onClick={() => { setError(''); setStep(Math.max(0, step - 1)) }}><ArrowLeft size={15} /> Back</button><span>{steps[step]}</span>{step < 3 && <button className="button button-dark" onClick={next}>Continue <ArrowRight size={15} /></button>}</div></section> : <section className="confirmation-card"><span className="confirm-icon"><Check /></span><span className="eyebrow">{donationStatus === 'COMPLETED' ? 'DONATION CONFIRMED' : 'DONATION PENDING VERIFICATION'}</span><h2>{donationStatus === 'COMPLETED' ? 'Thank you for your generosity.' : 'Your donation is being verified.'}</h2><p>{donationStatus === 'COMPLETED' ? 'Your donation has been confirmed by the payment provider.' : 'Thank you. The payment provider is confirming your donation; the status will update once Xendit notifies the Federation.'}</p><div className="receipt"><b>DONATION ACKNOWLEDGMENT</b><strong>{receiptCode}</strong><span>Beneficiary <b>Discalced Carmelite Nuns</b></span><span>Offering amount <b>{money(amount)}</b></span><span>Payment method <b>{gift.payment}</b></span><span>Donor <b>{gift.anonymous ? 'Anonymous Benefactor' : gift.name}</b></span><span>Status <b>{donationStatus === 'COMPLETED' ? 'Completed' : 'Pending verification'}</b></span><span>Date <b>{new Date().toLocaleDateString('en-PH')}</b></span></div><div className="confirmation-actions"><button className="button button-outline" onClick={() => window.print()}><FileText size={16} /> Print acknowledgment</button><button className="button button-dark" onClick={() => { setReceiptCode(''); setDonationStatus(''); setVerificationNoticeOpen(false); setStep(0); setGift(initialDonation); sessionStorage.removeItem('carmel-gift') }}>Make another offering <ArrowRight size={15} /></button></div></section>}
     {verificationNoticeOpen && <div className="donation-verification-backdrop" role="presentation"><section className="donation-verification-dialog" role="alertdialog" aria-modal="true" aria-labelledby="donation-verification-title" aria-describedby="donation-verification-description"><span className="confirm-icon"><Check /></span><span className="eyebrow">AWAITING VERIFICATION</span><h2 id="donation-verification-title">Your donation is being verified.</h2><p id="donation-verification-description">Thank you for your generosity. The Federation will review your payment and update its status once it has been verified. {gift.email || gift.phone ? 'The Federation can use the contact details you provided to update you after verification.' : 'No contact details were provided, so please keep your acknowledgment reference for follow-up.'}</p><button className="button button-dark" onClick={() => setVerificationNoticeOpen(false)}>Continue</button></section></div>}
     {!receiptCode && <div className="trust-row"><span><ShieldCheck />100% Direct to Monasteries</span><span><User />Anonymous Giving Supported</span><span><Smartphone />Helpline: (0921) 419-2267</span></div>}</div>
 }
@@ -1162,7 +1408,7 @@ async function hashPrototypePassword(password: string) {
 
 type AuthApiResponse = {
   error?: string
-  user?: { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: string; demo?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean }
+  user?: { id: string; name: string; email: string; gender?: MemberGender; phone?: string; address?: string; role: string; demo?: boolean; discernmentTrackingEnabled?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean }
 }
 async function readAuthResponse(response: Response): Promise<AuthApiResponse> {
   const retryAfter = Number(response.headers.get('Retry-After'))
@@ -1184,10 +1430,14 @@ async function readAuthResponse(response: Response): Promise<AuthApiResponse> {
 
 async function readApiResponse<T>(response: Response, operation: string): Promise<T> {
   let result: unknown
+  const text = await response.text()
   try {
-    const text = await response.text()
     result = text ? JSON.parse(text) : null
   } catch {
+    if (!response.ok && response.status === 429) {
+      throw new Error('Too many checkout attempts. Please wait 15 minutes before trying again.')
+    }
+    if (!response.ok) throw new Error(`${operation} failed (HTTP ${response.status}).`)
     throw new Error(`${operation} returned an invalid response (HTTP ${response.status}).`)
   }
   if (!response.ok) {
@@ -1318,7 +1568,7 @@ function MemberAuthPage({ mode }: { mode: 'login' | 'signup' | 'staff' }) {
               ? users.map((user) => user.id === demoUser.id ? { ...user, ...demoUser } : user)
               : [demoUser, ...users]))
           }
-          saveMemberSession({ id: result.user.id, name: result.user.name, email: result.user.email, gender: result.user.gender || gender, phone: result.user.phone, address: result.user.address, role: 'USER', ...(demoMember ? { prototype: true } : {}) })
+          saveMemberSession({ id: result.user.id, name: result.user.name, email: result.user.email, gender: result.user.gender || gender, phone: result.user.phone, address: result.user.address, role: 'USER', discernmentTrackingEnabled: result.user.discernmentTrackingEnabled === true, ...(demoMember ? { prototype: true } : {}) })
           navigate('/account', { replace: true })
           return
         }
@@ -1431,6 +1681,11 @@ function MemberDiscernmentView({ member }: { member: MemberAccount }) {
   const [details, setDetails] = useState<MemberDiscernment>(() => ({ monastery: '', stage: 'EXPLORING', note: '' }))
   const [loading, setLoading] = useState(!member.prototype)
   const [error, setError] = useState('')
+  const [criteria, setCriteria] = useState<DiscernmentCriteria>(discernmentCriteriaDefault)
+  const [metrics, setMetrics] = useState<DiscernmentMetrics>({ activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 })
+  const [trackingEnabled, setTrackingEnabled] = useState(Boolean(member.discernmentTrackingEnabled))
+  const [savingActivity, setSavingActivity] = useState(false)
+  const [savedActivity, setSavedActivity] = useState(false)
   useEffect(() => {
     let active = true
     if (member.prototype) {
@@ -1446,15 +1701,105 @@ function MemberDiscernmentView({ member }: { member: MemberAccount }) {
       window.dispatchEvent(new Event(discernmentUpdatedEvent))
       return () => { active = false }
     }
-    fetch('/api/discernment/mine', { credentials: 'include' }).then(async (response) => {
+    async function loadProgress() {
+      const response = await fetch('/api/discernment/mine', { credentials: 'include' })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to load your discernment progress.')
-      if (active) setDetails({ ...result.discernment, stage: normalizeDiscernmentStage(result.discernment.stage) })
-    }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Unable to load your discernment progress.') }).finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
+      if (active) {
+        setDetails({ ...result.discernment, stage: normalizeDiscernmentStage(result.discernment.stage) })
+        setCriteria(result.criteria)
+        setMetrics(result.metrics)
+        setTrackingEnabled(result.trackingEnabled === true)
+        setError('')
+      }
+    }
+    void loadProgress().catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : 'Unable to load your discernment progress.') }).finally(() => { if (active) setLoading(false) })
+    const timer = window.setInterval(() => {
+      void loadProgress().catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : 'Unable to refresh your discernment progress.') })
+    }, 30_000)
+    return () => { active = false; window.clearInterval(timer) }
   }, [member.email, member.prototype])
+  async function setActivityTracking(enabled: boolean) {
+    setError('')
+    try {
+      const response = await fetch('/api/discernment/tracking-consent', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Your tracking preference could not be saved.')
+      setTrackingEnabled(enabled)
+      if (!enabled) setMetrics({ activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 })
+      saveMemberSession({ ...member, discernmentTrackingEnabled: enabled })
+      window.dispatchEvent(new CustomEvent<boolean>(discernmentTrackingEvent, { detail: enabled }))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your tracking preference could not be saved.')
+    }
+  }
+  async function recordReflection() {
+    setSavingActivity(true)
+    setSavedActivity(false)
+    setError('')
+    try {
+      const response = await fetch('/api/discernment/activity', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'REFLECTION', dedupeKey: crypto.randomUUID() }),
+      })
+      const result = response.status === 204 ? {} : await response.json()
+      if (!response.ok) throw new Error(result.error || 'Your reflection check-in could not be recorded.')
+      setMetrics((current) => ({ ...current, prayerReflections: current.prayerReflections + 1 }))
+      setSavedActivity(true)
+      const progressResponse = await fetch('/api/discernment/mine', { credentials: 'include' })
+      const progress = await progressResponse.json()
+      if (!progressResponse.ok) throw new Error(progress.error || 'Your updated discernment progress could not be loaded.')
+      setDetails({ ...progress.discernment, stage: normalizeDiscernmentStage(progress.discernment.stage) })
+      setCriteria(progress.criteria)
+      setMetrics(progress.metrics)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your reflection check-in could not be recorded.')
+    } finally {
+      setSavingActivity(false)
+    }
+  }
   const currentStageIndex = discernmentStages.findIndex((stage) => stage.id === details.stage)
-  return <section className="member-account-section discernment-form"><div className="member-section-heading"><span className="eyebrow">YOUR JOURNEY</span><h2>Discernment</h2><p>Your progress is updated by the Federation as you move through each stage.</p><Link className="text-link" to="/discernment">Read discernment guides <ArrowRight size={14} /></Link></div>{loading && <p className="discernment-loading" role="status">Loading your discernment progress…</p>}<section className="discernment-progress" aria-label="Your discernment stages"><div className="discernment-progress-heading"><div><span className="eyebrow">CURRENT STAGE</span><h3>{discernmentStages[currentStageIndex]?.label}</h3></div><span>{currentStageIndex + 1} of {discernmentStages.length}</span></div><ol>{discernmentStages.map((stage, index) => <li className={index < currentStageIndex ? 'complete' : index === currentStageIndex ? 'current' : ''} key={stage.id}><span className="discernment-stage-marker">{index < currentStageIndex ? <Check size={13} /> : index + 1}</span><div><b>{stage.label}</b><small>{stage.description}</small></div></li>)}</ol></section>{error && <p className="form-error" role="alert">{error}</p>}<div className="discernment-contact"><p>Have a question about your journey? Send the Federation staff a private message.</p><Link className="button button-dark" to="/account/messages"><MessageCircle size={16} />Contact staff</Link></div></section>
+  const currentCriteria = criteria.transitions[currentStageIndex]
+  const milestones = currentCriteria ? [
+    { label: 'Active time on the website', value: metrics.activeSiteMinutes, target: currentCriteria.activeSiteMinutes, unit: 'minutes' },
+    { label: 'Teachings read', value: metrics.completedTeachings, target: currentCriteria.completedTeachings, unit: 'teachings' },
+    { label: 'Prayer or reflection check-ins', value: metrics.prayerReflections, target: currentCriteria.prayerReflections, unit: 'check-ins' },
+    { label: 'Messages sent to the Federation', value: metrics.communityMessages, target: currentCriteria.communityMessages, unit: 'messages' },
+  ] : []
+  const hasMilestones = milestones.some((milestone) => milestone.target > 0)
+  return <section className="member-account-section discernment-form">
+    <div className="member-section-heading"><span className="eyebrow">YOUR JOURNEY</span><h2>Discernment</h2><p>Your stage advances automatically when the Federation’s published milestones are met. These are guideposts for engagement, not a judgment of your vocation.</p><Link className="text-link" to="/discernment">Read discernment guides <ArrowRight size={14} /></Link></div>
+    {loading && <p className="discernment-loading" role="status">Loading your discernment progress…</p>}
+    <section className="discernment-progress" aria-label="Your discernment stages">
+      <div className="discernment-progress-heading"><div><span className="eyebrow">CURRENT STAGE</span><h3>{discernmentStages[currentStageIndex]?.label}</h3></div><span>{currentStageIndex + 1} of {discernmentStages.length}</span></div>
+      <ol>{discernmentStages.map((stage, index) => <li className={index < currentStageIndex ? 'complete' : index === currentStageIndex ? 'current' : ''} key={stage.id}><span className="discernment-stage-marker">{index < currentStageIndex ? <Check size={13} /> : index + 1}</span><div><b>{stage.label}</b><small>{stage.description}</small></div></li>)}</ol>
+    </section>
+    {!member.prototype && <section className="discernment-milestones" aria-labelledby="discernment-milestones-title">
+      <div><span className="eyebrow">YOUR NEXT STEP</span><h3 id="discernment-milestones-title">{currentStageIndex < 3 ? `Milestones for ${discernmentStages[currentStageIndex + 1].label}` : 'Continue discerning with your community'}</h3>
+        <p>Milestone totals are cumulative. The Federation sets the criteria in Manage Details; meeting them advances your stage automatically. A reflection check-in is self-reported, and your reflection text is never collected.</p>
+      </div>
+      {currentStageIndex < 3 && !hasMilestones && <p className="discernment-milestone-empty">The Federation has not set milestones for the next stage yet.</p>}
+      {currentStageIndex < 3 && hasMilestones && <>
+        <ul>{milestones.map(({ label, value, target, unit }) => <li key={label}><span>{label}</span><b>{target > 0 ? `${unit === 'minutes' ? value.toFixed(1) : value} / ${target} ${unit}` : 'Not required'}</b></li>)}</ul>
+        {!trackingEnabled && <p className="discernment-milestone-empty">Enable optional activity tracking to see your progress and qualify for automatic stage advancement.</p>}
+        {trackingEnabled && <button className="button button-outline" type="button" onClick={() => void recordReflection()} disabled={savingActivity}>{savingActivity ? 'Saving…' : 'I spent time in prayer or reflection'} <Check size={15} /></button>}
+        {savedActivity && <p className="form-success" role="status">Your reflection check-in was recorded. No reflection text is saved.</p>}
+      </>}
+    </section>}
+    {!member.prototype && <section className="discernment-tracking-settings">
+      <div><span className="eyebrow">YOUR PRIVACY</span><h3>{trackingEnabled ? 'Activity tracking is on' : 'Optional progress tracking'}</h3><p>When enabled, we count time on the site and active time reading teachings. The timer pauses when this tab is hidden and stops after 10 minutes without interaction. We record time by teaching to calculate completion; your progress shows totals, not a reading-history list. We also count your reflection check-ins and messages you send to Federation staff, but never collect reflection text or keystrokes. Turning tracking off deletes this discernment activity history; your current stage will not move backward.</p></div>
+      <button className={trackingEnabled ? 'button button-outline' : 'button button-dark'} type="button" onClick={() => void setActivityTracking(!trackingEnabled)}>{trackingEnabled ? 'Turn off and delete activity history' : 'Enable activity tracking'}</button>
+    </section>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="discernment-contact"><p>Have a question about your journey? Send the Federation staff a private message.</p><Link className="button button-dark" to="/account/messages"><MessageCircle size={16} />Contact staff</Link></div>
+  </section>
 }
 
 function MemberSecurityView({ member }: { member: MemberAccount }) {
@@ -1856,7 +2201,7 @@ function AdminSidebarNav({ user, onNavigate, unreadCount }: { user: PrototypeSta
   const canManageUsers = user.role === 'ADMIN' || user.canManageUsers === true
   const canManageDetails = user.role === 'ADMIN' || user.canManageDetails === true
   const canManageUpdates = user.role === 'ADMIN' || user.canManageUpdates === true
-  return <nav className="admin-navigation"><NavLink to="/admin" end onClick={onNavigate}><Home size={17} />Dashboard</NavLink><NavLink to="/admin/messages" onClick={onNavigate}><MessageCircle size={17} />Messages{unreadCount > 0 && <i className="unread-count">{unreadCount}</i>}</NavLink>{canManageUpdates && <NavLink to="/admin/updates" onClick={onNavigate}><FileText size={17} />Updates</NavLink>}{(canManageUsers || canManageDetails || canManageUpdates || user.role === 'ADMIN') && <div className="admin-nav-label">MANAGEMENT</div>}{canManageUsers && (user.role === 'ADMIN' ? group('users', 'Manage Users', Users, [['Formators', '/admin/users?role=FORMATOR'], ['Users', '/admin/users?role=USER']]) : <NavLink to="/admin/users?role=USER" onClick={onNavigate}><Users size={17} />Manage Users</NavLink>)}{user.role === 'ADMIN' && <NavLink to="/admin/discerners" onClick={onNavigate}><Heart size={17} />Discerners</NavLink>}{user.role === 'ADMIN' && group('donations', 'Donations', HandHeart, [['Verification', '/admin/donations?view=verification'], ['Record Donation', '/admin/donations?view=logs'], ['Transactions', '/admin/donations?view=files']])}{canManageDetails && group('details', 'Manage Details', Image, [['Home', '/admin/content?section=home'], ['Our Monastery', '/admin/content?section=monastery'], ['Carmelife', '/admin/content?section=carmelife'], ['Carmelight', '/admin/content?section=carmelight'], ['About Us', '/admin/content?section=about'], ['Contact Us', '/admin/content?section=contact']])}{user.role === 'ADMIN' && <NavLink to="/admin/system-backup" onClick={onNavigate}><Database size={17} />System Backup</NavLink>}{(user.role === 'ADMIN' || user.role === 'FORMATOR') && <NavLink to="/admin/audit" onClick={onNavigate}><Clipboard size={17} />Audit Logs</NavLink>}</nav>
+  return <nav className="admin-navigation"><NavLink to="/admin" end onClick={onNavigate}><Home size={17} />Dashboard</NavLink><NavLink to="/admin/messages" onClick={onNavigate}><MessageCircle size={17} />Messages{unreadCount > 0 && <i className="unread-count">{unreadCount}</i>}</NavLink>{canManageUpdates && <NavLink to="/admin/updates" onClick={onNavigate}><FileText size={17} />Updates</NavLink>}{(canManageUsers || canManageDetails || canManageUpdates || user.role === 'ADMIN') && <div className="admin-nav-label">MANAGEMENT</div>}{canManageUsers && (user.role === 'ADMIN' ? group('users', 'Manage Users', Users, [['Formators', '/admin/users?role=FORMATOR'], ['Users', '/admin/users?role=USER']]) : <NavLink to="/admin/users?role=USER" onClick={onNavigate}><Users size={17} />Manage Users</NavLink>)}{user.role === 'ADMIN' && <NavLink to="/admin/discerners" onClick={onNavigate}><Heart size={17} />Discerners</NavLink>}{user.role === 'ADMIN' && group('donations', 'Donations', HandHeart, [['Verification', '/admin/donations?view=verification'], ['Record Donation', '/admin/donations?view=logs'], ['Transactions', '/admin/donations?view=files']])}{canManageDetails && group('details', 'Manage Details', Image, [['Home', '/admin/content?section=home'], ['Our Monastery', '/admin/content?section=monastery'], ['Carmelife', '/admin/content?section=carmelife'], ['Carmelight', '/admin/content?section=carmelight'], ['Discernment milestones', '/admin/content?section=discernment'], ['About Us', '/admin/content?section=about'], ['Contact Us', '/admin/content?section=contact']])}{user.role === 'ADMIN' && <NavLink to="/admin/system-backup" onClick={onNavigate}><Database size={17} />System Backup</NavLink>}{(user.role === 'ADMIN' || user.role === 'FORMATOR') && <NavLink to="/admin/audit" onClick={onNavigate}><Clipboard size={17} />Audit Logs</NavLink>}</nav>
 }
 function AdminShell({ children, user, onUserUpdated }: { children: ReactNode; user: PrototypeStaff; onUserUpdated: (user: PrototypeStaff) => void }) {
   const navigate = useNavigate()
@@ -2234,6 +2579,88 @@ type CarmelightsTrainingResult = {
   evaluation: Record<string, unknown>
 }
 
+function DiscernmentCriteriaAdminPage() {
+  const [criteria, setCriteria] = useState<DiscernmentCriteria>(discernmentCriteriaDefault)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/discernment/criteria', { credentials: 'include' }).then(async (response) => {
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Discernment milestones could not be loaded.')
+      if (active) setCriteria(result.criteria)
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : 'Discernment milestones could not be loaded.')
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+  function updateTransition(index: number, field: keyof DiscernmentCriteria['transitions'][number], value: string) {
+    const number = Number(value)
+    setCriteria((current) => ({
+      ...current,
+      transitions: current.transitions.map((transition, transitionIndex) => transitionIndex === index
+        ? { ...transition, [field]: Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0 }
+        : transition),
+    }))
+    setSuccess('')
+  }
+  async function saveCriteria(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      const response = await fetch('/api/admin/discernment/criteria', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(criteria),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Discernment milestones could not be saved.')
+      setCriteria(result.criteria)
+      setSuccess('Discernment milestones saved. Users can now see these requirements and their progress.')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Discernment milestones could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  const transitionNames = [
+    ['Exploring the Call', 'Prayerful Discernment'],
+    ['Prayerful Discernment', 'Preparing to Meet a Community'],
+    ['Preparing to Meet a Community', 'Discerning with a Community'],
+  ]
+  return <main className="discernment-criteria-admin">
+    <div className="admin-title-row"><div><span className="eyebrow">MANAGE DETAILS</span><h1>Discernment milestones</h1><p>Set the measurable engagement criteria users will see in the discernment guide and their account.</p></div></div>
+    <form className="admin-panel discernment-criteria-form" onSubmit={(event) => void saveCriteria(event)}>
+      <section className="discernment-criteria-reading">
+        <div className="panel-heading"><div><h2>Teaching completion</h2><p>A teaching is complete after the user spends enough active reading time based on its word count.</p></div></div>
+        <div className="discernment-criteria-fields">
+          <label>Estimated reading speed (words per minute)<input type="number" min={80} max={500} step={1} required value={criteria.readingWordsPerMinute} onChange={(event) => { const value = Number(event.target.value); setCriteria((current) => ({ ...current, readingWordsPerMinute: Number.isFinite(value) ? Math.floor(value) : 0 })); setSuccess('') }} /></label>
+          <label>Minimum share of estimated reading time (%)<input type="number" min={50} max={100} step={1} required value={criteria.readingCompletionPercent} onChange={(event) => { const value = Number(event.target.value); setCriteria((current) => ({ ...current, readingCompletionPercent: Number.isFinite(value) ? Math.floor(value) : 0 })); setSuccess('') }} /></label>
+        </div>
+        <p className="discernment-criteria-note">The active-time timer pauses when a tab is hidden and stops after 10 minutes without interaction. Reading time is accumulated separately for each teaching.</p>
+      </section>
+      {criteria.transitions.map((transition, index) => <section className="discernment-criteria-transition" key={transitionNames[index][0]}>
+        <div className="panel-heading"><div><span className="eyebrow">STAGE {index + 1} → {index + 2}</span><h2>{transitionNames[index][0]} to {transitionNames[index][1]}</h2><p>Set cumulative totals. Every non-zero requirement must be met. Use 0 for a milestone that is not required.</p></div></div>
+        <div className="discernment-criteria-fields">
+          <label>Active website minutes<input type="number" min={0} max={100000} step={1} value={transition.activeSiteMinutes} onChange={(event) => updateTransition(index, 'activeSiteMinutes', event.target.value)} /></label>
+          <label>Completed teachings<input type="number" min={0} max={10000} step={1} value={transition.completedTeachings} onChange={(event) => updateTransition(index, 'completedTeachings', event.target.value)} /></label>
+          <label>Prayer/reflection check-ins<input type="number" min={0} max={10000} step={1} value={transition.prayerReflections} onChange={(event) => updateTransition(index, 'prayerReflections', event.target.value)} /></label>
+          <label>Messages sent to the Federation<input type="number" min={0} max={10000} step={1} value={transition.communityMessages} onChange={(event) => updateTransition(index, 'communityMessages', event.target.value)} /></label>
+        </div>
+      </section>)}
+      <p className="discernment-criteria-note">Milestones are engagement indicators, not a measure of spiritual readiness. Progress is opt-in and self-reported reflection check-ins do not include private text. The final stage has no automatic next stage.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
+      <button className="button button-dark" type="submit" disabled={saving || loading}>{saving ? 'Saving…' : loading ? 'Loading…' : 'Save discernment milestones'} <Check size={15} /></button>
+    </form>
+  </main>
+}
+
 function ContentAdminPage() {
   const location = useLocation()
   const section = new URLSearchParams(location.search).get('section') || 'home'
@@ -2267,7 +2694,7 @@ function ContentAdminPage() {
   const isSaints = section === 'carmelight'
   const articleKey = isLife ? 'carmelife' : 'carmelights'
   const articles = content[articleKey]
-  const sectionTitle = isMonastery ? 'Our Monastery' : isLife ? 'Carmelife' : isSaints ? 'Carmelights' : section === 'contact' ? 'Contact Us' : section === 'about' ? 'About Us' : 'Home'
+  const sectionTitle = section === 'discernment' ? 'Discernment milestones' : isMonastery ? 'Our Monastery' : isLife ? 'Carmelife' : isSaints ? 'Carmelights' : section === 'contact' ? 'Contact Us' : section === 'about' ? 'About Us' : 'Home'
   function focusEditor(form: HTMLFormElement | null) {
     requestAnimationFrame(() => {
       form?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input:not([type="file"]), textarea')?.focus({ preventScroll: true })
@@ -2306,6 +2733,7 @@ function ContentAdminPage() {
   useEffect(() => {
     let active = true
     async function ensureManagedContentRecord() {
+      if (section === 'discernment') return
       try {
         const response = await fetch('/api/content/SITE_MANAGED')
         if (response.status !== 404) {
@@ -2330,7 +2758,7 @@ function ContentAdminPage() {
     }
     void ensureManagedContentRecord()
     return () => { active = false }
-  }, [])
+  }, [section])
   useEffect(() => {
     if (!isSaints) return
     let active = true
@@ -2563,6 +2991,8 @@ function ContentAdminPage() {
   const updateMonastery = (key: keyof ManagedMonastery, value: string) => { setSuccess(''); setMonastery((current) => ({ ...current, [key]: value })) }
   const updateArticle = (key: keyof ManagedArticle, value: string) => { setSuccess(''); setArticle((current) => ({ ...current, [key]: value })) }
 
+  if (section === 'discernment') return <DiscernmentCriteriaAdminPage />
+
   return <>
     <div className="admin-title-row">
       <div>
@@ -2572,7 +3002,7 @@ function ContentAdminPage() {
       </div>
     </div>
     <nav className="content-admin-tabs" aria-label="Website sections">
-      { [['Home', 'home'], ['Our Monastery', 'monastery'], ['Carmelife', 'carmelife'], ['Carmelights', 'carmelight']].map(([label, key]) =>
+      { [['Home', 'home'], ['Our Monastery', 'monastery'], ['Carmelife', 'carmelife'], ['Carmelights', 'carmelight'], ['Discernment', 'discernment']].map(([label, key]) =>
         <Link className={section === key ? 'active' : ''} key={key} to={`/admin/content?section=${key}`}>{label}</Link>,
       )}
     </nav>
@@ -2722,6 +3152,7 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
   const [success, setSuccess] = useState('')
   const [selectedDonation, setSelectedDonation] = useState<AdminDonationRecord | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [confirmReject, setConfirmReject] = useState(false)
   const [amount, setAmount] = useState('')
   const [fund, setFund] = useState('Federation formation program')
   const [paymentMethod, setPaymentMethod] = useState<AdminDonationRecord['paymentMethod']>('GCASH')
@@ -2875,8 +3306,8 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
     }
   }
 
-  function closeDetails() { setSelectedDonation(null) }
-  async function verifyDonation() {
+  function closeDetails() { setSelectedDonation(null); setConfirmReject(false) }
+  async function updateDonationStatus(status: 'VERIFIED' | 'FAILED') {
     if (!selectedDonation) return
     setError('')
     setSuccess('')
@@ -2884,7 +3315,7 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
     try {
       let updated: AdminDonationRecord
       if (offline) {
-        updated = { ...selectedDonation, status: 'VERIFIED' }
+        updated = { ...selectedDonation, status }
         const nextDonations = donations.map((donation) => donation.id === updated.id ? updated : donation)
         localStorage.setItem(offlineDonationRecordsKey, JSON.stringify(nextDonations))
         setDonations(nextDonations)
@@ -2893,20 +3324,22 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'VERIFIED' }),
+          body: JSON.stringify({ status }),
         })
-        const result = await readApiResponse<{ donation: AdminDonationRecord }>(response, 'Verifying donation')
+        const result = await readApiResponse<{ donation: AdminDonationRecord }>(response, status === 'VERIFIED' ? 'Verifying donation' : 'Rejecting payment claim')
         updated = result.donation
         setDonations((current) => current.map((donation) => donation.id === updated.id ? { ...donation, ...updated } : donation))
       }
       setSelectedDonation(updated)
-      setSuccess(`Donation ${updated.referenceCode} has been verified.`)
+      setConfirmReject(false)
+      setSuccess(status === 'VERIFIED' ? `Donation ${updated.referenceCode} has been verified.` : `Payment claim ${updated.referenceCode} was rejected. The donation was not counted as received.`)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The donation could not be verified.')
+      setError(reason instanceof Error ? reason.message : status === 'VERIFIED' ? 'The donation could not be verified.' : 'The payment claim could not be rejected.')
     } finally {
       setUpdatingStatus(false)
     }
   }
+  function verifyDonation() { return updateDonationStatus('VERIFIED') }
   const formattedAmount = (value: number | string) => `₱${Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const pendingDonations = donations.filter((donation) => donation.status === 'PENDING' || donation.status === 'RECONCILING')
   const visibleDonations = view === 'verification' ? pendingDonations : donations
@@ -2948,9 +3381,10 @@ function DonationAdminPage({ user }: { user: PrototypeStaff }) {
         <header><div><span className="eyebrow">DONATION TRANSACTION</span><h2 id="donation-detail-title">{selectedDonation.referenceCode}</h2></div><button type="button" aria-label="Close transaction details" onClick={closeDetails}><X size={18} /></button></header>
         <dl className="donation-detail-grid"><div><dt>Source</dt><dd>{selectedDonation.isManual ? 'Manual entry' : 'Submitted through donation form'}</dd></div><div><dt>Amount</dt><dd>{formattedAmount(selectedDonation.amount)}</dd></div><div><dt>Payment method</dt><dd>{donationPaymentLabels[selectedDonation.paymentMethod]}</dd></div><div><dt>Donor</dt><dd>{selectedDonation.isAnonymous ? 'Anonymous' : selectedDonation.donorName || 'Not provided'}</dd></div><div><dt>Email</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorEmail || 'Not provided'}</dd></div><div><dt>Phone</dt><dd>{selectedDonation.isAnonymous ? 'Not recorded' : selectedDonation.donorPhone || 'Not provided'}</dd></div><div><dt>Purpose / fund</dt><dd>{selectedDonation.fund}</dd></div><div><dt>Frequency</dt><dd>{selectedDonation.type === 'MONTHLY' ? 'Monthly' : 'One-time'}</dd></div><div className="donation-payment-reference"><dt>Payment reference</dt><dd>{selectedDonation.paymentReference || 'Not provided'}</dd></div><div><dt>Status</dt><dd>{selectedDonation.status}</dd></div><div><dt>Date recorded</dt><dd>{new Date(selectedDonation.createdAt).toLocaleString()}</dd></div></dl>
         <div className="donation-detail-proof"><h3>Payment proof</h3>{selectedDonation.files?.length ? selectedDonation.files.map((file) => <div key={file.id}>{file.type === 'application/pdf' ? <a href={file.fileUrl} target="_blank" rel="noreferrer">{file.fileName || 'Open proof document'} <ArrowUpRight size={14} /></a> : <a href={file.fileUrl} target="_blank" rel="noreferrer"><img src={file.fileUrl} alt={file.fileName || 'Donation payment proof'} /><span>{file.fileName || 'View proof image'} <ArrowUpRight size={14} /></span></a>}</div>) : <p>{selectedDonation.isManual ? 'No proof was attached to this manual entry.' : 'Proof is not required for donations submitted through the donation form.'}</p>}</div>
-        {(selectedDonation.status === 'PENDING' || selectedDonation.status === 'RECONCILING') && <footer className="donation-detail-actions"><p>Confirm the payment in your GCash or Maya account before marking it verified.</p><button className="button button-dark" type="button" onClick={() => void verifyDonation()} disabled={updatingStatus}>{updatingStatus ? 'Verifying…' : 'Mark payment as verified'} <Check size={15} /></button></footer>}
+        {(selectedDonation.status === 'PENDING' || selectedDonation.status === 'RECONCILING') && <footer className="donation-detail-actions"><p>Confirm the payment in your GCash or Maya account before marking it verified.</p><div><button className="button button-outline donation-reject-button" type="button" onClick={() => setConfirmReject(true)} disabled={updatingStatus}>Reject payment claim</button><button className="button button-dark" type="button" onClick={() => void verifyDonation()} disabled={updatingStatus}>{updatingStatus ? 'Verifying…' : 'Mark payment as verified'} <Check size={15} /></button></div></footer>}
       </section>
     </div>}
+    {confirmReject && selectedDonation && <div className="account-confirm-backdrop donation-reject-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingStatus) setConfirmReject(false) }}><section className="account-confirm-dialog donation-reject-dialog" role="alertdialog" aria-modal="true" aria-labelledby="donation-reject-title" aria-describedby="donation-reject-description"><span className="eyebrow">DONATION VERIFICATION</span><h2 id="donation-reject-title">Reject this payment claim?</h2><p id="donation-reject-description">The submitted payment could not be verified. This donation will not be counted as received.</p>{error && <p className="form-error" role="alert">{error}</p>}<footer><button className="button button-outline" type="button" onClick={() => setConfirmReject(false)} disabled={updatingStatus}>Cancel</button><button className="button donation-reject-confirm" type="button" onClick={() => void updateDonationStatus('FAILED')} disabled={updatingStatus}>{updatingStatus ? 'Rejecting…' : 'Reject payment claim'}</button></footer></section></div>}
   </>
 }
 
@@ -3055,10 +3489,12 @@ const auditActionLabels: Record<string, string> = {
   LOGIN: 'Signed in',
   LOGOUT: 'Signed out',
   UPDATE_PROFILE: 'Updated profile',
+  RESET_PASSWORD: 'Changed an account password',
   UPDATE_CONTENT: 'Updated website content',
   DONATION_RECEIVED: 'Donation received',
   RECORD_DONATION: 'Recorded a donation',
   VERIFY_DONATION: 'Verified a donation payment',
+  REJECT_DONATION: 'Rejected an unverified donation claim',
   SYSTEM_BACKUP_EXPORT: 'Exported system backup',
   SYSTEM_BACKUP_IMPORT: 'Imported system backup',
   UPDATE_STATUS: 'Updated donation status',
@@ -3070,6 +3506,8 @@ const auditActionLabels: Record<string, string> = {
 function formatAuditDetails(log: AuditRecord) {
   if (log.action === 'LOGIN') return `Signed in to the administration panel as ${log.user?.role === 'FORMATOR' ? 'Formator' : 'Admin'}.`
   if (log.action === 'LOGOUT') return 'Signed out of the administration panel.'
+  if (log.action === 'REJECT_DONATION') return 'The submitted payment could not be verified. This donation was not counted as received.'
+  if (log.action === 'RESET_PASSWORD') return `Changed the password for a ${log.meta?.role === 'FORMATOR' ? 'Formator' : 'user'} account.`
   if (log.action === 'DONATION_RECEIVED') {
     const details = [
       typeof log.meta?.isAnonymous === 'boolean' && log.meta.isAnonymous ? 'Anonymous donation' : 'Donation',
@@ -3374,6 +3812,51 @@ type ManagedAccount = {
 }
 const managedAccountsUpdatedEvent = 'carmel-managed-accounts-updated'
 
+function ManagedPasswordResetButton({ account, onChanged }: { account: ManagedAccount; onChanged: (message: string) => void }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  function closeDialog() {
+    setDialogOpen(false)
+    setPassword('')
+    setConfirmation('')
+    setError('')
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    if (password !== confirmation) {
+      setError('The passwords do not match.')
+      return
+    }
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(account.id)}/password`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      await readApiResponse<{ message: string }>(response, 'Changing account password')
+      onChanged(`Password updated for ${account.name}.`)
+      closeDialog()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not change the account password.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <>
+    <button className="staff-action" type="button" onClick={() => { setDialogOpen(true); setError(''); setPassword(''); setConfirmation('') }}>Change password</button>
+    {dialogOpen && <div className="account-confirm-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) closeDialog() }}><section className="account-confirm-dialog managed-password-dialog" role="dialog" aria-modal="true" aria-labelledby={`managed-password-title-${account.id}`}><span className="eyebrow">ACCOUNT SECURITY</span><h2 id={`managed-password-title-${account.id}`}>Change password</h2><p>Set a new password for <strong>{account.name}</strong>. They can use it the next time they sign in.</p><form onSubmit={changePassword}><label>New password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={128} autoComplete="new-password" required /></label><label>Confirm new password<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={10} maxLength={128} autoComplete="new-password" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<footer><button className="button button-outline" type="button" onClick={closeDialog} disabled={saving}>Cancel</button><button className="button button-dark" type="submit" disabled={saving}>{saving ? 'Updating…' : 'Update password'}</button></footer></form></section></div>}
+  </>
+}
+
 function ManageUsersPage() {
   const location = useLocation()
   const view = new URLSearchParams(location.search).get('role') === 'USER' ? 'USER' : 'FORMATOR'
@@ -3501,7 +3984,7 @@ function ManageUsersPage() {
     {error && <p className="form-error" role="alert">{error}</p>}
     {success && <p className="form-success" role="status" aria-live="polite">{success}</p>}
     {view === 'FORMATOR' && showCreate && <form className="create-formator" onSubmit={createFormator}><header><span className="eyebrow">NEW STAFF ACCOUNT</span><h2>Create Formator</h2><p>The account and password are stored securely in PostgreSQL.</p></header><div className="create-form-fields"><label>Full name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" required minLength={2} maxLength={100} /></label><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={128} placeholder="At least 10 characters" required autoComplete="new-password" /></label></div><fieldset className="create-permission-group"><legend>Access grants</legend><div>{permissionOptions.map(({ key, label, description }) => <label className="create-permission-option" key={key}><input type="checkbox" checked={permissions[key]} onChange={(event) => setPermissions((current) => ({ ...current, [key]: event.target.checked }))} /><span><b>{label}</b><small>{description}</small></span></label>)}</div></fieldset><footer><button className="button button-dark" type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create account'} <ArrowRight size={15} /></button></footer></form>}
-    {view === 'FORMATOR' ? <section className="managed-section"><header className="managed-section-heading"><div><span className="eyebrow">STAFF ACCESS</span><h2>Formator accounts</h2><p>{counts.FORMATOR} {counts.FORMATOR === 1 ? 'account' : 'accounts'} · database records</p></div><span className="staff-role-label">FORMATOR</span></header>{loading ? <div className="staff-empty">Loading Formator accounts…</div> : staff.length ? <div className="managed-record-list">{staff.map((member) => <article className="managed-record" key={member.id}><header className="managed-record-identity"><span className="managed-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><h3>{member.name}</h3><p>{member.email}</p><small>{member.phone || 'No phone provided'} · {member.createdAt ? `Joined ${new Date(member.createdAt).toLocaleDateString()}` : 'Join date unavailable'}</small></div><span className={`access-status ${member.isActive ? 'enabled' : 'disabled'}`}>{member.isActive ? 'Active' : 'Disabled'}</span></header><section className="managed-permissions"><div className="managed-permissions-heading"><h4>Permissions</h4><p>Changes are saved to PostgreSQL.</p></div><div className="managed-permission-grid">{permissionOptions.map(({ key, label, description, icon: Icon }) => <button type="button" key={key} className={`managed-permission ${member[key] ? 'granted' : ''}`} aria-pressed={member[key]} disabled={saving} onClick={() => void updateAccount(member, { [key]: !member[key] })}><span className="managed-permission-icon"><Icon size={16} /></span><span className="managed-permission-copy"><b>{label}</b><small>{description}</small></span><span className={`managed-permission-state ${member[key] ? 'granted' : ''}`}>{member[key] ? 'Granted' : 'Not granted'}</span></button>)}</div></section><footer className="managed-record-actions"><span>Account actions</span><div><button className="staff-action" disabled={saving} onClick={() => member.isActive ? setPendingAccountAction({ account: member, action: 'disable' }) : void updateAccount(member, { isActive: true })}>{member.isActive ? 'Disable account' : 'Enable account'}</button><button className="staff-remove" disabled={saving} onClick={() => setPendingAccountAction({ account: member, action: 'delete' })}>Delete</button></div></footer></article>)}</div> : <div className="staff-empty"><Users size={24} /><p>No Formator accounts in the database yet.</p></div>}</section> : <section className="managed-section"><header className="managed-section-heading"><div><span className="eyebrow">COMMUNITY ACCESS</span><h2>Users and discerners</h2><p>{counts.USER} {counts.USER === 1 ? 'account' : 'accounts'} · contact and discernment details from PostgreSQL</p></div><span className="staff-role-label">USER</span></header>{loading ? <div className="staff-empty">Loading community accounts…</div> : users.length ? <div className="managed-user-list">{users.map((member) => <article className="managed-user-row" key={member.id}><span className="managed-avatar user-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div className="managed-user-identity"><h3>{member.name}</h3><p>{member.email}</p><small>{member.phone || 'No phone provided'} · {member.address || 'No address provided'}{member.createdAt ? ` · Joined ${new Date(member.createdAt).toLocaleDateString()}` : ''}</small><small>{member.discernment ? `Discerner · ${member.discernment.stage.replaceAll('_', ' ').toLowerCase()}${member.discernment.monastery ? ` · ${member.discernment.monastery}` : ''}` : 'Not registered as a discerner'}</small></div><span className={`access-status ${member.isActive ? 'enabled' : 'disabled'}`}>{member.isActive ? 'Active' : 'Blocked'}</span><div className="managed-user-actions"><button className="staff-action" disabled={saving} onClick={() => member.isActive ? setPendingAccountAction({ account: member, action: 'disable' }) : void updateAccount(member, { isActive: true })}>{member.isActive ? 'Block' : 'Unblock'}</button><button className="staff-remove" disabled={saving} onClick={() => setPendingAccountAction({ account: member, action: 'delete' })}>Delete</button></div></article>)}</div> : <div className="staff-empty"><Users size={24} /><p>No community accounts in the database yet.</p></div>}</section>}
+    {view === 'FORMATOR' ? <section className="managed-section"><header className="managed-section-heading"><div><span className="eyebrow">STAFF ACCESS</span><h2>Formator accounts</h2><p>{counts.FORMATOR} {counts.FORMATOR === 1 ? 'account' : 'accounts'} · database records</p></div><span className="staff-role-label">FORMATOR</span></header>{loading ? <div className="staff-empty">Loading Formator accounts…</div> : staff.length ? <div className="managed-record-list">{staff.map((member) => <article className="managed-record" key={member.id}><header className="managed-record-identity"><span className="managed-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><h3>{member.name}</h3><p>{member.email}</p><small>{member.phone || 'No phone provided'} · {member.createdAt ? `Joined ${new Date(member.createdAt).toLocaleDateString()}` : 'Join date unavailable'}</small></div><span className={`access-status ${member.isActive ? 'enabled' : 'disabled'}`}>{member.isActive ? 'Active' : 'Disabled'}</span></header><section className="managed-permissions"><div className="managed-permissions-heading"><h4>Permissions</h4><p>Changes are saved to PostgreSQL.</p></div><div className="managed-permission-grid">{permissionOptions.map(({ key, label, description, icon: Icon }) => <button type="button" key={key} className={`managed-permission ${member[key] ? 'granted' : ''}`} aria-pressed={member[key]} disabled={saving} onClick={() => void updateAccount(member, { [key]: !member[key] })}><span className="managed-permission-icon"><Icon size={16} /></span><span className="managed-permission-copy"><b>{label}</b><small>{description}</small></span><span className={`managed-permission-state ${member[key] ? 'granted' : ''}`}>{member[key] ? 'Granted' : 'Not granted'}</span></button>)}</div></section><footer className="managed-record-actions"><span>Account actions</span><div><ManagedPasswordResetButton account={member} onChanged={setSuccess} /><button className="staff-action" disabled={saving} onClick={() => member.isActive ? setPendingAccountAction({ account: member, action: 'disable' }) : void updateAccount(member, { isActive: true })}>{member.isActive ? 'Disable account' : 'Enable account'}</button><button className="staff-remove" disabled={saving} onClick={() => setPendingAccountAction({ account: member, action: 'delete' })}>Delete</button></div></footer></article>)}</div> : <div className="staff-empty"><Users size={24} /><p>No Formator accounts in the database yet.</p></div>}</section> : <section className="managed-section"><header className="managed-section-heading"><div><span className="eyebrow">COMMUNITY ACCESS</span><h2>Users and discerners</h2><p>{counts.USER} {counts.USER === 1 ? 'account' : 'accounts'} · contact and discernment details from PostgreSQL</p></div><span className="staff-role-label">USER</span></header>{loading ? <div className="staff-empty">Loading community accounts…</div> : users.length ? <div className="managed-user-list">{users.map((member) => <article className="managed-user-row" key={member.id}><span className="managed-avatar user-avatar">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div className="managed-user-identity"><h3>{member.name}</h3><p>{member.email}</p><small>{member.phone || 'No phone provided'} · {member.address || 'No address provided'}{member.createdAt ? ` · Joined ${new Date(member.createdAt).toLocaleDateString()}` : ''}</small><small>{member.discernment ? `Discerner · ${member.discernment.stage.replaceAll('_', ' ').toLowerCase()}${member.discernment.monastery ? ` · ${member.discernment.monastery}` : ''}` : 'Not registered as a discerner'}</small></div><span className={`access-status ${member.isActive ? 'enabled' : 'disabled'}`}>{member.isActive ? 'Active' : 'Blocked'}</span><div className="managed-user-actions"><ManagedPasswordResetButton account={member} onChanged={setSuccess} /><button className="staff-action" disabled={saving} onClick={() => member.isActive ? setPendingAccountAction({ account: member, action: 'disable' }) : void updateAccount(member, { isActive: true })}>{member.isActive ? 'Block' : 'Unblock'}</button><button className="staff-remove" disabled={saving} onClick={() => setPendingAccountAction({ account: member, action: 'delete' })}>Delete</button></div></article>)}</div> : <div className="staff-empty"><Users size={24} /><p>No community accounts in the database yet.</p></div>}</section>}
     {pendingAccountAction && <div className="account-confirm-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingAccountAction(null) }}><section className="account-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="account-confirm-title" aria-describedby="account-confirm-description"><span className="eyebrow">ACCOUNT ACTION</span><h2 id="account-confirm-title">{pendingAccountAction.action === 'delete' ? 'Delete this account?' : 'Disable this account?'}</h2><p id="account-confirm-description">{pendingAccountAction.action === 'delete' ? <>This will permanently delete <strong>{pendingAccountAction.account.name}</strong>'s account. This action cannot be undone.</> : <> <strong>{pendingAccountAction.account.name}</strong> will no longer be able to sign in. You can enable the account again later.</>}</p><footer><button className="button button-outline" type="button" onClick={() => setPendingAccountAction(null)}>Cancel</button><button className="button account-confirm-danger" type="button" disabled={saving} onClick={() => void confirmAccountAction()}>{saving ? 'Saving…' : pendingAccountAction.action === 'delete' ? 'Delete account' : 'Disable account'}</button></footer></section></div>}
   </main>
 }
@@ -3741,7 +4224,7 @@ function AdminDiscernmentPage({ user }: { user: PrototypeStaff }) {
     finally { setPendingUserId('') }
   }
   const filtered = records.filter((record) => `${record.name} ${record.email} ${record.monastery}`.toLowerCase().includes(query.toLowerCase()))
-  return <main className="user-admin-page discerner-admin-page"><header className="user-admin-heading"><div><span className="eyebrow">VOCATION JOURNEY</span><h1>Discerning users</h1><p>Follow each discerner’s progress and update their stage when the community is ready.</p></div><span className="discerner-total">{records.length} {records.length === 1 ? 'discerner' : 'discerners'}</span></header><div className="discerner-stage-summary">{discernmentStages.map((stage, index) => <div key={stage.id}><span>0{index + 1}</span><b>{records.filter((record) => record.stage === stage.id).length}</b><small>{stage.label}</small></div>)}</div><div className="discerner-toolbar"><label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, email, or community" aria-label="Search discerners" /></label><span>Stage changes are visible in the user’s account.</span></div>{error && <p className="form-error" role="alert">{error}</p>}{loading ? <div className="staff-empty">Loading discerners…</div> : filtered.length ? <section className="discerner-list">{filtered.map((record) => <article className="discerner-row" key={record.userId}><div className="discerner-identity"><span className="managed-avatar user-avatar">{record.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><h2>{record.name}</h2><p>{record.email}</p>{record.monastery && <small>{record.monastery}</small>}</div></div><div className="discerner-stage"><span className="eyebrow">CURRENT STAGE</span><b>{discernmentStages.find((stage) => stage.id === record.stage)?.label}</b><small>{record.updatedAt ? `Updated ${new Date(record.updatedAt).toLocaleDateString()}` : 'Not updated yet'}</small></div><label className="discerner-stage-edit"><span>Update stage</span><select value={record.stage} onChange={(event) => void updateStage(record, event.target.value as DiscernmentStage)} disabled={pendingUserId === record.userId}>{discernmentStages.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}</select></label></article>)}</section> : <div className="staff-empty"><Heart size={24} /><p>{records.length ? 'No discerners match your search.' : 'No users have started discerning yet.'}</p></div>}</main>
+  return <main className="user-admin-page discerner-admin-page"><header className="user-admin-heading"><div><span className="eyebrow">VOCATION JOURNEY</span><h1>Discerning users</h1><p>Stages advance automatically when configured milestones are met; staff can adjust the record when needed.</p></div><span className="discerner-total">{records.length} {records.length === 1 ? 'discerner' : 'discerners'}</span></header><div className="discerner-stage-summary">{discernmentStages.map((stage, index) => <div key={stage.id}><span>0{index + 1}</span><b>{records.filter((record) => record.stage === stage.id).length}</b><small>{stage.label}</small></div>)}</div><div className="discerner-toolbar"><label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, email, or community" aria-label="Search discerners" /></label><span>Stage changes are visible in the user’s account.</span></div>{error && <p className="form-error" role="alert">{error}</p>}{loading ? <div className="staff-empty">Loading discerners…</div> : filtered.length ? <section className="discerner-list">{filtered.map((record) => <article className="discerner-row" key={record.userId}><div className="discerner-identity"><span className="managed-avatar user-avatar">{record.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><div><h2>{record.name}</h2><p>{record.email}</p>{record.monastery && <small>{record.monastery}</small>}</div></div><div className="discerner-stage"><span className="eyebrow">CURRENT STAGE</span><b>{discernmentStages.find((stage) => stage.id === record.stage)?.label}</b><small>{record.updatedAt ? `Updated ${new Date(record.updatedAt).toLocaleDateString()}` : 'Not updated yet'}</small></div><label className="discerner-stage-edit"><span>Update stage</span><select value={record.stage} onChange={(event) => void updateStage(record, event.target.value as DiscernmentStage)} disabled={pendingUserId === record.userId}>{discernmentStages.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}</select></label></article>)}</section> : <div className="staff-empty"><Heart size={24} /><p>{records.length ? 'No discerners match your search.' : 'No users have started discerning yet.'}</p></div>}</main>
 }
 
 function AdminPage() {
@@ -3807,4 +4290,4 @@ function AppRoutes() {
     <Route path="*" element={<PublicLayout><section className="content-page section-wrap"><h1>This page has <em>gone quiet.</em></h1><Link className="button button-dark" to="/">Return home <ArrowRight size={15} /></Link></section></PublicLayout>} />
   </Routes>
 }
-export default function CarmelApp() { return <BrowserRouter><AppRoutes /><PermissionConfirmationHost /></BrowserRouter> }
+export default function CarmelApp() { return <BrowserRouter><DiscernmentSiteActivityTracker /><AppRoutes /><PermissionConfirmationHost /></BrowserRouter> }

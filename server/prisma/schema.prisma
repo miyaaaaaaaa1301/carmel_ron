@@ -52,6 +52,12 @@ enum ContentInteractionType {
   UNBOOKMARK
 }
 
+enum DiscernmentActivityType {
+  SITE_TIME
+  READING_TIME
+  REFLECTION
+}
+
 enum MessageCategory {
   DONATION
   DISCERNER
@@ -74,6 +80,7 @@ model User {
   address      String      @default("")
   privacyConsentAt      DateTime?
   privacyPolicyVersion  String?
+  discernmentTrackingConsentAt DateTime?
   passwordHash String
   role         Role        @default(USER)
   isActive     Boolean     @default(true)
@@ -88,6 +95,7 @@ model User {
   staffConversations Conversation[] @relation("StaffConversations")
   sentMessages Message[] @relation("UserMessages")
   contentInteractions ContentInteraction[]
+  discernmentActivities DiscernmentActivity[]
 }
 
 model Discernment {
@@ -125,6 +133,8 @@ model Donation {
   type                  DonationType   @default(ONE_TIME)
   fund                  String
   paymentMethod         PaymentMethod
+  xenditInvoiceId       String?        @unique
+  xenditInvoiceUrl      String?
   paymongoPaymentIntentId String?       @unique
   paymongoQrImageUrl      String?
   paymongoQrExpiresAt     DateTime?
@@ -222,6 +232,20 @@ model ContentInteraction {
   @@index([eventType, createdAt])
   @@index([readingId, eventType, createdAt])
   @@index([userId, readingId, createdAt])
+}
+
+model DiscernmentActivity {
+  id              String                  @id @default(cuid())
+  userId          String
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            DiscernmentActivityType
+  readingId       String?
+  durationSeconds Int                     @default(0)
+  dedupeKey       String                  @unique
+  createdAt       DateTime                @default(now())
+
+  @@index([userId, type, createdAt])
+  @@index([userId, readingId, type])
 }
 
 model FAQ {

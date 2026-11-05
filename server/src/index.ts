@@ -18,6 +18,8 @@ const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'productio
 if (!jwtSecret) throw new Error('Set JWT_SECRET before starting in production.')
 const lightfmServiceUrl = process.env.LIGHTFM_SERVICE_URL || 'http://127.0.0.1:8001'
 const lightfmApiToken = process.env.LIGHTFM_API_TOKEN || ''
+const xenditSecretKey = process.env.XENDIT_SECRET_KEY || process.env.XENDIT_TEST_SECRET_KEY || ''
+const xenditCallbackToken = process.env.XENDIT_CALLBACK_TOKEN || ''
 const demoAuthEnabled = process.env.DEMO_AUTH_ENABLED === 'true' && process.env.NODE_ENV !== 'production'
 const demoAdminEmail = process.env.DEMO_ADMIN_EMAIL?.toLowerCase() || ''
 const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD || ''
@@ -31,16 +33,17 @@ const systemBackupPassword = 'carmelites'
 const systemBackupFormat = 'carmels-in-communion-backup'
 const maxBackupPlaintextBytes = 45 * 1024 * 1024
 const backupTables = [
-  { name: 'User', columns: ['id', 'name', 'email', 'phone', 'address', 'privacyConsentAt', 'privacyPolicyVersion', 'passwordHash', 'role', 'isActive', 'canManageUsers', 'canManageDetails', 'canManageUpdates', 'createdAt', 'updatedAt'], uniqueColumns: ['email'] },
+  { name: 'User', columns: ['id', 'name', 'email', 'phone', 'address', 'privacyConsentAt', 'privacyPolicyVersion', 'discernmentTrackingConsentAt', 'passwordHash', 'role', 'isActive', 'canManageUsers', 'canManageDetails', 'canManageUpdates', 'createdAt', 'updatedAt'], uniqueColumns: ['email'] },
   { name: 'Monastery', columns: ['id', 'name', 'city', 'slug', 'description', 'imageUrl', 'address', 'contact', 'sortOrder', 'createdAt', 'updatedAt'], uniqueColumns: ['slug'] },
   { name: 'Discernment', columns: ['id', 'userId', 'stage', 'monastery', 'note', 'createdAt', 'updatedAt'], uniqueColumns: ['userId'] },
-  { name: 'Donation', columns: ['id', 'referenceCode', 'amount', 'type', 'fund', 'paymentMethod', 'paymongoPaymentIntentId', 'paymongoQrImageUrl', 'paymongoQrExpiresAt', 'isManual', 'isAnonymous', 'donorName', 'donorEmail', 'donorPhone', 'wantsReceipt', 'paymentReference', 'beneficiaryMonasteryId', 'status', 'createdAt', 'updatedAt'], uniqueColumns: ['referenceCode', 'paymongoPaymentIntentId'] },
+  { name: 'Donation', columns: ['id', 'referenceCode', 'amount', 'type', 'fund', 'paymentMethod', 'xenditInvoiceId', 'xenditInvoiceUrl', 'paymongoPaymentIntentId', 'paymongoQrImageUrl', 'paymongoQrExpiresAt', 'isManual', 'isAnonymous', 'donorName', 'donorEmail', 'donorPhone', 'wantsReceipt', 'paymentReference', 'beneficiaryMonasteryId', 'status', 'createdAt', 'updatedAt'], uniqueColumns: ['referenceCode', 'xenditInvoiceId', 'paymongoPaymentIntentId'] },
   { name: 'DonationFile', columns: ['id', 'donationId', 'fileUrl', 'type', 'fileName', 'createdAt'], uniqueColumns: [] },
   { name: 'Conversation', columns: ['id', 'userId', 'name', 'email', 'subject', 'category', 'isRead', 'lastMessageAt', 'createdAt'], uniqueColumns: ['userId'] },
   { name: 'Message', columns: ['id', 'conversationId', 'senderId', 'senderType', 'body', 'readAt', 'createdAt'], uniqueColumns: [] },
   { name: 'Update', columns: ['id', 'title', 'slug', 'excerpt', 'body', 'coverImage', 'category', 'publishedAt', 'createdAt', 'updatedAt'], uniqueColumns: ['slug'] },
   { name: 'PageContent', columns: ['id', 'pageKey', 'blocks', 'updatedAt'], uniqueColumns: ['pageKey'], jsonColumns: ['blocks'] },
   { name: 'ContentInteraction', columns: ['id', 'userId', 'readingId', 'eventType', 'dedupeKey', 'createdAt'], uniqueColumns: ['dedupeKey'] },
+  { name: 'DiscernmentActivity', columns: ['id', 'userId', 'type', 'readingId', 'durationSeconds', 'dedupeKey', 'createdAt'], uniqueColumns: ['dedupeKey'] },
   { name: 'FAQ', columns: ['id', 'question', 'answer', 'sortOrder', 'isPublished', 'updatedAt'], uniqueColumns: [] },
   { name: 'AuditLog', columns: ['id', 'userId', 'action', 'entity', 'entityId', 'meta', 'createdAt'], uniqueColumns: [], jsonColumns: ['meta'] },
 ] as const
@@ -51,6 +54,7 @@ const backupDependencies: Record<string, Array<{ table: string; column: string }
   Conversation: [{ table: 'User', column: 'userId' }],
   Message: [{ table: 'Conversation', column: 'conversationId' }, { table: 'User', column: 'senderId' }],
   ContentInteraction: [{ table: 'User', column: 'userId' }],
+  DiscernmentActivity: [{ table: 'User', column: 'userId' }],
   AuditLog: [{ table: 'User', column: 'userId' }],
 }
 const backupEnumColumns: Record<string, Record<string, string>> = {
@@ -60,6 +64,7 @@ const backupEnumColumns: Record<string, Record<string, string>> = {
   Conversation: { category: '"MessageCategory"' },
   Message: { senderType: '"SenderType"' },
   ContentInteraction: { eventType: '"ContentInteractionType"' },
+  DiscernmentActivity: { type: '"DiscernmentActivityType"' },
 }
 
 app.disable('x-powered-by')
@@ -75,9 +80,9 @@ app.use('/api/auth', rateLimit({
   legacyHeaders: false,
   handler: (_req, res) => res.setHeader('Retry-After', '300').status(429).json({ error: 'Too many authentication attempts. Please wait 5 minutes before trying again.' }),
 }))
-app.use('/api/donations', rateLimit({ windowMs: 60 * 60 * 1000, limit: 8, standardHeaders: 'draft-8', legacyHeaders: false }))
 app.use('/api/contact', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false }))
 app.use('/api/content/interactions', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }))
+app.use('/api/discernment/activity', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }))
 
 const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' as const, path: '/' }
 const visitorChatCookieOptions = { ...cookieOptions, path: '/api/chat' }
@@ -274,7 +279,13 @@ function isSystemBackupPassword(value: string) {
   return supplied.byteLength === expected.byteLength && timingSafeEqual(supplied, expected)
 }
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'carmel-in-communion-api', demoAuthEnabled }))
+app.get('/api/health', (_req, res) => res.json({
+  status: 'ok',
+  service: 'carmel-in-communion-api',
+  demoAuthEnabled,
+  xenditConfigured: Boolean(xenditSecretKey),
+  xenditEnabled: Boolean(xenditSecretKey && xenditCallbackToken),
+}))
 
 app.post('/api/admin/system-backup/export', authenticate, allowRoles('ADMIN'), rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -445,7 +456,7 @@ app.post('/api/auth/login', asyncRoute(async (req, res) => {
     if (user.role === 'ADMIN' || user.role === 'FORMATOR') await audit(user.id, 'LOGIN', 'Session', user.id, { role: user.role })
     const token = jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '8h' })
     res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
-    return res.json({ user: { id: user.id, name: user.name, email: user.email, gender: user.gender, phone: user.phone, address: user.address, role: user.role, canManageUsers: user.canManageUsers, canManageDetails: user.canManageDetails, canManageUpdates: user.canManageUpdates } })
+    return res.json({ user: { id: user.id, name: user.name, email: user.email, gender: user.gender, phone: user.phone, address: user.address, role: user.role, discernmentTrackingEnabled: Boolean(user.discernmentTrackingConsentAt), canManageUsers: user.canManageUsers, canManageDetails: user.canManageDetails, canManageUpdates: user.canManageUpdates } })
   }
   const providedPassword = Buffer.from(input.password)
   const expectedPassword = Buffer.from(demoAdminPassword)
@@ -537,12 +548,137 @@ const donationSchema = z.object({
   reference: z.string().trim().max(100).optional().default(''),
   fund: z.string().trim().max(150).optional().default('Federation formation program'),
 })
-app.post('/api/donations', asyncRoute(async (req, res) => {
+app.post('/api/donations', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (_req, res) => res.setHeader('Retry-After', '900').status(429).json({
+    error: 'Too many donation checkout attempts. Please wait 15 minutes before trying again.',
+  }),
+}), asyncRoute(async (req, res) => {
   const parsed = validate(donationSchema, req.body)
   if (parsed.error) return res.status(400).json({ error: 'Please check the donation details.', details: parsed.error })
   const input = parsed.data!
   if (!input.anonymous && (!input.name || !input.email)) return res.status(400).json({ error: 'Name and email are required for a named donation.' })
   if (input.receipt && !input.email && !input.phone) return res.status(400).json({ error: 'Add an email or phone number for the receipt.' })
+  if (xenditSecretKey) {
+    if (!xenditCallbackToken) return res.status(503).json({ error: 'Set XENDIT_CALLBACK_TOKEN in server/.env and configure the matching Xendit webhook before accepting test donations.' })
+    const referenceCode = `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
+    const created = await prisma.$transaction(async (tx) => {
+      const donation = await tx.donation.create({ data: {
+        referenceCode,
+        amount: new Prisma.Decimal(input.amount),
+        type: 'ONE_TIME',
+        fund: input.fund,
+        paymentMethod: input.payment,
+        isAnonymous: input.anonymous,
+        donorName: input.anonymous ? null : input.name || null,
+        donorEmail: input.anonymous && !input.receipt ? null : input.email || null,
+        donorPhone: input.anonymous && !input.receipt ? null : input.phone || null,
+        wantsReceipt: input.receipt,
+        status: 'PENDING',
+      } })
+      await tx.auditLog.create({ data: {
+        action: 'DONATION_RECEIVED',
+        entity: 'Donation',
+        entityId: donation.id,
+        meta: {
+          referenceCode,
+          amount: input.amount,
+          fund: input.fund,
+          paymentMethod: input.payment,
+          status: 'PENDING',
+          isAnonymous: input.anonymous,
+        },
+      } })
+      return donation
+    })
+    const configuredOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+    let returnOrigin = configuredOrigin
+    if (process.env.NODE_ENV !== 'production') {
+      const requestOrigin = req.get('origin')
+      if (requestOrigin) {
+        try {
+          const parsedOrigin = new URL(requestOrigin)
+          if (parsedOrigin.hostname === 'localhost' || parsedOrigin.hostname === '127.0.0.1') returnOrigin = parsedOrigin.origin
+        } catch {
+          // Use the configured client origin when the request Origin header is invalid.
+        }
+      }
+    }
+    const redirectUrl = new URL('/donations', returnOrigin)
+    redirectUrl.searchParams.set('reference', referenceCode)
+    const invoiceData = {
+      amount: input.amount,
+      currency: 'PHP',
+      external_id: referenceCode,
+      invoice_duration: 86400,
+      description: `Donation to the Federation formation program (${referenceCode})`,
+      payment_methods: [{
+        GCASH: 'GCASH',
+        MAYA: 'PAYMAYA',
+        BANK: 'BANK_TRANSFER',
+        CARD: 'CARDS',
+      }[input.payment]],
+      success_redirect_url: `${redirectUrl.toString()}&xendit=success`,
+      failure_redirect_url: `${redirectUrl.toString()}&xendit=cancelled`,
+      ...(input.email ? { payer_email: input.email } : {}),
+    }
+    let xenditResponse: Awaited<ReturnType<typeof fetch>>
+    try {
+      xenditResponse = await fetch('https://api.xendit.co/v2/invoices', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${xenditSecretKey}:`).toString('base64')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoiceData),
+        signal: AbortSignal.timeout(15000),
+      })
+    } catch (error) {
+      console.error('Xendit invoice request failed:', error instanceof Error ? error.message : 'Unknown network error')
+      await prisma.donation.update({ where: { id: created.id }, data: { status: 'FAILED' } })
+      return res.status(502).json({ error: 'Could not reach Xendit to create checkout. Please try again.' })
+    }
+    let invoice: { id?: unknown; invoice_url?: unknown; error_code?: unknown }
+    try {
+      invoice = await xenditResponse.json() as typeof invoice
+    } catch {
+      console.error(`Xendit returned an unreadable invoice response (HTTP ${xenditResponse.status}).`)
+      await prisma.donation.update({ where: { id: created.id }, data: { status: 'FAILED' } })
+      return res.status(502).json({ error: 'Xendit returned an unexpected response. Please try again.' })
+    }
+    if (!xenditResponse.ok || typeof invoice.id !== 'string' || typeof invoice.invoice_url !== 'string') {
+      const errorCode = typeof invoice.error_code === 'string' && /^[A-Z0-9_]{2,100}$/.test(invoice.error_code)
+        ? invoice.error_code
+        : 'UNKNOWN_ERROR'
+      console.error(`Xendit invoice request failed (HTTP ${xenditResponse.status}, ${errorCode}).`)
+      await prisma.donation.update({ where: { id: created.id }, data: { status: 'FAILED' } })
+      if (errorCode === 'UNAVAILABLE_PAYMENT_METHOD_ERROR') {
+        const method = { GCASH: 'GCash', MAYA: 'Maya', BANK: 'Bank Transfer', CARD: 'Cards' }[input.payment]
+        return res.status(502).json({
+          error: `${method} is not enabled for this Xendit account yet. In Xendit Dashboard, open Payment Channels → Activate Payment Channels and request activation. Some channels require account verification. You can use GCash or Maya while waiting.`,
+        })
+      }
+      return res.status(502).json({ error: `Xendit could not create checkout (${errorCode}). Check the API terminal for details.` })
+    }
+    await prisma.donation.update({
+      where: { id: created.id },
+      data: { xenditInvoiceId: invoice.id, xenditInvoiceUrl: invoice.invoice_url },
+    })
+    return res.status(201).json({
+      donation: {
+        referenceCode,
+        amount: created.amount,
+        paymentMethod: created.paymentMethod,
+        isAnonymous: created.isAnonymous,
+        status: created.status,
+        createdAt: created.createdAt,
+      },
+      invoiceUrl: invoice.invoice_url,
+    })
+  }
   const isDemoPayment = demoAuthEnabled && input.reference.trim().toLowerCase() === 'carmelites'
   const referenceCode = `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
   const retainName = !input.anonymous
@@ -585,6 +721,48 @@ app.post('/api/donations', asyncRoute(async (req, res) => {
   })
   res.status(201).json({ donation })
 }))
+app.post('/api/donations/xendit-webhook', asyncRoute(async (req, res) => {
+  if (!xenditCallbackToken) return res.status(503).json({ error: 'Xendit webhook verification is not configured.' })
+  const callbackToken = req.get('x-callback-token') || ''
+  const expectedToken = Buffer.from(xenditCallbackToken)
+  const receivedToken = Buffer.from(callbackToken)
+  if (expectedToken.length !== receivedToken.length || !timingSafeEqual(expectedToken, receivedToken)) {
+    return res.status(401).json({ error: 'Invalid Xendit callback token.' })
+  }
+  const callbackSchema = z.object({
+    external_id: z.string().min(1),
+    id: z.string().optional(),
+    status: z.string(),
+    amount: z.number().finite().positive(),
+  }).passthrough()
+  const parsedCallback = callbackSchema.safeParse(req.body)
+  if (!parsedCallback.success) return res.status(400).json({ error: 'Invalid Xendit invoice notification.' })
+  const callback = parsedCallback.data
+  if (callback.status !== 'PAID' && callback.status !== 'EXPIRED') return res.json({ received: true })
+  const donation = await prisma.donation.findUnique({
+    where: { referenceCode: callback.external_id },
+    select: { id: true, referenceCode: true, amount: true, status: true, xenditInvoiceId: true },
+  })
+  if (!donation) return res.status(404).json({ error: 'Donation for this Xendit invoice was not found.' })
+  if (callback.id && donation.xenditInvoiceId && callback.id !== donation.xenditInvoiceId) {
+    return res.status(409).json({ error: 'Xendit invoice ID does not match the donation.' })
+  }
+  if (callback.status === 'PAID' && !donation.amount.equals(new Prisma.Decimal(callback.amount))) {
+    return res.status(400).json({ error: 'Xendit invoice amount does not match the donation.' })
+  }
+  if (donation.status === 'COMPLETED') return res.json({ received: true })
+  const nextStatus = callback.status === 'PAID' ? 'COMPLETED' : 'FAILED'
+  await prisma.$transaction(async (tx) => {
+    await tx.donation.update({ where: { id: donation.id }, data: { status: nextStatus } })
+    await tx.auditLog.create({ data: {
+      action: callback.status === 'PAID' ? 'DONATION_PAID' : 'DONATION_EXPIRED',
+      entity: 'Donation',
+      entityId: donation.id,
+      meta: { referenceCode: donation.referenceCode, status: nextStatus },
+    } })
+  })
+  res.json({ received: true })
+}))
 app.get('/api/donations/mine', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { email: true, isActive: true } })
   if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
@@ -593,10 +771,194 @@ app.get('/api/donations/mine', authenticate, allowRoles('USER'), asyncRoute(asyn
 }))
 const discernmentStages = ['EXPLORING', 'PRAYING_AND_LEARNING', 'READY_TO_VISIT', 'IN_CONVERSATION'] as const
 const discernmentSchema = z.object({ monastery: z.string().trim().max(150).default(''), note: z.string().trim().max(5000).default('') })
+const discernmentCriteriaSchema = z.object({
+  readingWordsPerMinute: z.number().int().min(80).max(500),
+  readingCompletionPercent: z.number().int().min(50).max(100),
+  transitions: z.array(z.object({
+    activeSiteMinutes: z.number().int().min(0).max(100_000),
+    completedTeachings: z.number().int().min(0).max(10_000),
+    prayerReflections: z.number().int().min(0).max(10_000),
+    communityMessages: z.number().int().min(0).max(10_000),
+  }).strict()).length(3),
+}).strict()
+type DiscernmentCriteria = z.infer<typeof discernmentCriteriaSchema>
+const defaultDiscernmentCriteria: DiscernmentCriteria = {
+  readingWordsPerMinute: 200,
+  readingCompletionPercent: 80,
+  transitions: [
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+    { activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0 },
+  ],
+}
+async function getDiscernmentCriteria(): Promise<DiscernmentCriteria> {
+  const record = await prisma.pageContent.findUnique({ where: { pageKey: 'DISCERNMENT_CRITERIA' }, select: { blocks: true } })
+  if (!record) return defaultDiscernmentCriteria
+  const parsed = discernmentCriteriaSchema.safeParse(record.blocks)
+  if (!parsed.success) throw new Error('Saved discernment criteria are invalid. Review them under Manage Details.')
+  return parsed.data
+}
+async function getDiscernmentMetrics(userId: string, criteria: DiscernmentCriteria, trackingStartedAt: Date) {
+  const [siteTime, reflections, teachingTime, communityMessages, siteContent] = await Promise.all([
+    prisma.discernmentActivity.aggregate({ where: { userId, type: 'SITE_TIME' }, _sum: { durationSeconds: true } }),
+    prisma.discernmentActivity.count({ where: { userId, type: 'REFLECTION' } }),
+    prisma.discernmentActivity.groupBy({ by: ['readingId'], where: { userId, type: 'READING_TIME', readingId: { not: null } }, _sum: { durationSeconds: true } }),
+    prisma.message.count({ where: { senderId: userId, senderType: 'VISITOR', createdAt: { gte: trackingStartedAt } } }),
+    prisma.pageContent.findUnique({ where: { pageKey: 'SITE_MANAGED' }, select: { blocks: true } }),
+  ])
+  const blocks = siteContent?.blocks
+  const entries = blocks && typeof blocks === 'object' && !Array.isArray(blocks) && Array.isArray(blocks.carmelights)
+    ? blocks.carmelights
+    : []
+  const readingSeconds = new Map(teachingTime.flatMap((item) => item.readingId ? [[item.readingId, item._sum.durationSeconds || 0] as const] : []))
+  const minimumCompletionRatio = criteria.readingCompletionPercent / 100
+  const completedTeachings = entries.reduce<number>((completed, entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry) || typeof entry.id !== 'string' || typeof entry.body !== 'string') return completed
+    const wordCount = entry.body.trim().split(/\s+/).filter(Boolean).length
+    if (!wordCount) return completed
+    const estimatedSeconds = Math.ceil(wordCount / criteria.readingWordsPerMinute * 60 * minimumCompletionRatio)
+    return (readingSeconds.get(entry.id) || 0) >= estimatedSeconds ? completed + 1 : completed
+  }, 0)
+  return {
+    activeSiteMinutes: (siteTime._sum.durationSeconds || 0) / 60,
+    completedTeachings,
+    prayerReflections: reflections,
+    communityMessages,
+  }
+}
+function meetsDiscernmentCriteria(criteria: DiscernmentCriteria['transitions'][number], metrics: Awaited<ReturnType<typeof getDiscernmentMetrics>>) {
+  const requirements = [
+    criteria.activeSiteMinutes > 0,
+    criteria.completedTeachings > 0,
+    criteria.prayerReflections > 0,
+    criteria.communityMessages > 0,
+  ]
+  if (!requirements.some(Boolean)) return false
+  return metrics.activeSiteMinutes >= criteria.activeSiteMinutes
+    && metrics.completedTeachings >= criteria.completedTeachings
+    && metrics.prayerReflections >= criteria.prayerReflections
+    && metrics.communityMessages >= criteria.communityMessages
+}
+async function advanceDiscernmentIfReady(userId: string, criteria: DiscernmentCriteria, metrics: Awaited<ReturnType<typeof getDiscernmentMetrics>>) {
+  const current = await prisma.discernment.upsert({ where: { userId }, update: {}, create: { userId } })
+  let stageIndex = discernmentStages.indexOf(current.stage)
+  const originalStageIndex = stageIndex
+  while (stageIndex < 3 && meetsDiscernmentCriteria(criteria.transitions[stageIndex], metrics)) stageIndex += 1
+  if (stageIndex === originalStageIndex) return current
+  const updated = await prisma.discernment.update({
+    where: { userId },
+    data: { stage: discernmentStages[stageIndex] },
+  })
+  await audit(userId, 'AUTO_ADVANCE_STAGE', 'Discernment', userId, { from: current.stage, to: updated.stage })
+  return updated
+}
+async function evaluateMemberDiscernment(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { discernmentTrackingConsentAt: true } })
+  if (!user?.discernmentTrackingConsentAt) return
+  const criteria = await getDiscernmentCriteria()
+  const metrics = await getDiscernmentMetrics(userId, criteria, user.discernmentTrackingConsentAt)
+  await advanceDiscernmentIfReady(userId, criteria, metrics)
+}
 const memberMessageSchema = z.object({ body: z.string().trim().min(1).max(5000) })
 app.get('/api/discernment/mine', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
+  const [user, criteria] = await Promise.all([
+    prisma.user.findUnique({ where: { id: req.auth!.id }, select: { isActive: true, discernmentTrackingConsentAt: true } }),
+    getDiscernmentCriteria(),
+  ])
+  if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
   const discernment = await prisma.discernment.upsert({ where: { userId: req.auth!.id }, update: {}, create: { userId: req.auth!.id } })
-  res.json({ discernment })
+  const trackingEnabled = Boolean(user.discernmentTrackingConsentAt)
+  const metrics = trackingEnabled ? await getDiscernmentMetrics(req.auth!.id, criteria, user.discernmentTrackingConsentAt!) : {
+    activeSiteMinutes: 0, completedTeachings: 0, prayerReflections: 0, communityMessages: 0,
+  }
+  const currentDiscernment = trackingEnabled ? await advanceDiscernmentIfReady(req.auth!.id, criteria, metrics) : discernment
+  res.json({
+    discernment: currentDiscernment,
+    trackingEnabled,
+    criteria,
+    metrics,
+  })
+}))
+app.get('/api/discernment/tracking-status', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { isActive: true, discernmentTrackingConsentAt: true } })
+  if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
+  res.json({ enabled: Boolean(user.discernmentTrackingConsentAt) })
+}))
+app.put('/api/discernment/tracking-consent', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
+  const parsed = validate(z.object({ enabled: z.boolean() }).strict(), req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Choose whether to enable discernment activity tracking.' })
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { isActive: true } })
+  if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
+  if (parsed.data!.enabled) {
+    await prisma.user.update({ where: { id: req.auth!.id }, data: { discernmentTrackingConsentAt: new Date() } })
+  } else {
+    await prisma.$transaction([
+      prisma.discernmentActivity.deleteMany({ where: { userId: req.auth!.id } }),
+      prisma.user.update({ where: { id: req.auth!.id }, data: { discernmentTrackingConsentAt: null } }),
+    ])
+  }
+  res.json({ enabled: parsed.data!.enabled })
+}))
+const discernmentActivitySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('SITE_TIME'), seconds: z.number().int().min(1).max(60), dedupeKey: z.uuid() }).strict(),
+  z.object({ type: z.literal('READING_TIME'), readingId: z.string().trim().min(1).max(100), seconds: z.number().int().min(1).max(60), dedupeKey: z.uuid() }).strict(),
+  z.object({ type: z.literal('REFLECTION'), dedupeKey: z.uuid() }).strict(),
+])
+app.post('/api/discernment/activity', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
+  const parsed = validate(discernmentActivitySchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Provide a valid discernment activity.' })
+  const user = await prisma.user.findUnique({
+    where: { id: req.auth!.id },
+    select: { isActive: true, discernmentTrackingConsentAt: true },
+  })
+  if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
+  if (!user.discernmentTrackingConsentAt) return res.status(403).json({ error: 'Enable discernment activity tracking in your journey settings first.' })
+  const activity = parsed.data!
+  if (activity.type === 'READING_TIME') {
+    const siteContent = await prisma.pageContent.findUnique({ where: { pageKey: 'SITE_MANAGED' }, select: { blocks: true } })
+    const blocks = siteContent?.blocks
+    const entries = blocks && typeof blocks === 'object' && !Array.isArray(blocks) ? blocks.carmelights : undefined
+    const published = Array.isArray(entries) && entries.some((entry) =>
+      entry && typeof entry === 'object' && !Array.isArray(entry) && entry.id === activity.readingId)
+    if (!published) return res.status(404).json({ error: 'This Carmelights teaching is unavailable.' })
+  }
+  try {
+    await prisma.discernmentActivity.create({
+      data: {
+        userId: req.auth!.id,
+        type: activity.type,
+        readingId: activity.type === 'READING_TIME' ? activity.readingId : null,
+        durationSeconds: activity.type === 'REFLECTION' ? 0 : activity.seconds,
+        dedupeKey: activity.dedupeKey,
+      },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return res.status(204).end()
+    throw error
+  }
+  const criteria = await getDiscernmentCriteria()
+  const metrics = await getDiscernmentMetrics(req.auth!.id, criteria, user.discernmentTrackingConsentAt)
+  await advanceDiscernmentIfReady(req.auth!.id, criteria, metrics)
+  res.status(204).end()
+}))
+app.get('/api/discernment/criteria', asyncRoute(async (_req, res) => {
+  res.json({ criteria: await getDiscernmentCriteria() })
+}))
+app.get('/api/admin/discernment/criteria', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  res.json({ criteria: await getDiscernmentCriteria() })
+}))
+app.put('/api/admin/discernment/criteria', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  const parsed = validate(discernmentCriteriaSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Please check the discernment milestones before saving.', details: parsed.error })
+  const content = await prisma.pageContent.upsert({
+    where: { pageKey: 'DISCERNMENT_CRITERIA' },
+    update: { blocks: parsed.data! as Prisma.InputJsonValue },
+    create: { pageKey: 'DISCERNMENT_CRITERIA', blocks: parsed.data! as Prisma.InputJsonValue },
+  })
+  await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey: 'DISCERNMENT_CRITERIA' })
+  res.json({ criteria: parsed.data })
 }))
 app.patch('/api/discernment/mine', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
   const parsed = validate(discernmentSchema, req.body)
@@ -661,6 +1023,7 @@ app.post('/api/account/conversations', authenticate, allowRoles('USER'), asyncRo
       messages: { orderBy: { createdAt: 'asc' }, include: { sender: { select: { id: true, name: true, role: true } } } },
     },
   })
+  await evaluateMemberDiscernment(user.id)
   res.status(201).json({ conversation })
 }))
 app.post('/api/account/conversations/:id/messages', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
@@ -682,6 +1045,7 @@ app.post('/api/account/conversations/:id/messages', authenticate, allowRoles('US
       },
     })
   })
+  await evaluateMemberDiscernment(req.auth!.id)
   res.status(201).json({ conversation: updated })
 }))
 app.get('/api/account/conversation', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
@@ -714,6 +1078,7 @@ app.post('/api/account/conversation/messages', authenticate, allowRoles('USER'),
       include: { messages: { orderBy: { createdAt: 'asc' }, include: { sender: { select: { id: true, name: true, role: true } } } } },
     })
   })
+  await evaluateMemberDiscernment(user.id)
   res.status(201).json({ conversation })
 }))
 app.get('/api/donations/:reference', asyncRoute(async (req, res) => {
@@ -1455,6 +1820,20 @@ app.patch('/api/admin/users/:id', authenticate, asyncRoute(async (req, res) => {
   await audit(actor.id, 'UPDATE', 'User', user.id, parsed.data! as Prisma.InputJsonValue)
   res.json({ user })
 }))
+const managedPasswordSchema = z.object({ password: z.string().min(10).max(128) })
+app.post('/api/admin/users/:id/password', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
+  const actor = await authorizeManagedAccounts(req, res, false)
+  if (!actor) return
+  const parsed = validate(managedPasswordSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'The new password must be between 10 and 128 characters.', details: parsed.error })
+  const id = routeParam(req, 'id')
+  const current = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } })
+  if (!current || (current.role !== 'USER' && current.role !== 'FORMATOR')) return res.status(404).json({ error: 'Managed account not found.' })
+  const passwordHash = await bcrypt.hash(parsed.data!.password, 12)
+  await prisma.user.update({ where: { id }, data: { passwordHash } })
+  await audit(actor.id, 'RESET_PASSWORD', 'User', id, { role: current.role })
+  res.json({ message: 'Account password updated successfully.' })
+}))
 app.delete('/api/admin/users/:id', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
   const actor = await authorizeManagedAccounts(req, res, false)
   if (!actor) return
@@ -1495,7 +1874,11 @@ app.patch('/api/admin/donations/:id/status', authenticate, allowRoles('ADMIN', '
   const donation = await prisma.donation.update({ where: { id: donationId }, data: { status: parsed.data!.status } })
   await audit(
     req.auth!.id,
-    donation.status === 'VERIFIED' && previous.status !== 'VERIFIED' ? 'VERIFY_DONATION' : 'UPDATE_STATUS',
+    donation.status === 'VERIFIED' && previous.status !== 'VERIFIED'
+      ? 'VERIFY_DONATION'
+      : donation.status === 'FAILED' && (previous.status === 'PENDING' || previous.status === 'RECONCILING')
+        ? 'REJECT_DONATION'
+        : 'UPDATE_STATUS',
     'Donation',
     donation.id,
     { from: previous.status, to: donation.status },
@@ -1647,7 +2030,7 @@ app.get('/api/admin/audit', authenticate, allowRoles('ADMIN', 'FORMATOR'), async
     where: isAdmin
       ? { OR: [
         { user: { is: { role: { in: ['ADMIN', 'FORMATOR'] } } } },
-        { entity: 'Donation', action: 'DONATION_RECEIVED' },
+        { entity: 'Donation', action: { in: ['DONATION_RECEIVED', 'DONATION_PAID', 'DONATION_EXPIRED'] } },
         { entity: 'SystemBackup' },
       ] }
       : { user: { is: { role: { in: ['ADMIN', 'FORMATOR'] } } }, entity: { notIn: ['Donation', 'SystemBackup'] } },

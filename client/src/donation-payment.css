@@ -3,6 +3,10 @@
   align-items: center;
 }
 
+.payment-instructions.xendit-checkout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .payment-instructions .qr-placeholder {
   width: 100%;
   height: auto;

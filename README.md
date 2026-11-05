@@ -6,9 +6,15 @@ A React and Express prototype for the Philippine Federation of Discalced Carmeli
 
 - Node.js 20 or newer
 - npm
-- PostgreSQL for database-backed API features
+- Docker Desktop for the local PostgreSQL database
 
 ## Run locally
+
+Start PostgreSQL in Docker from the project root:
+
+```powershell
+docker compose up -d postgres
+```
 
 Install dependencies from the project root:
 
@@ -18,16 +24,17 @@ npm --prefix client install
 npm --prefix server install
 ```
 
-Copy `server/.env.example` to `server/.env` and set the database URL and secrets for your environment. Then prepare the database and start the client and API:
+Copy `server/.env.example` to `server/.env`. Its database URL is configured for the local PostgreSQL container; replace the placeholder secrets before using anything beyond local development. Then prepare the database and start the client and API:
 
 ```powershell
+Copy-Item .\server\.env.example .\server\.env
 npm run db:generate
 npm run db:push
 npm run db:seed
 npm run dev
 ```
 
-The website runs at http://localhost:5173 and the API runs at http://localhost:4000. The database commands require a running PostgreSQL instance configured in `server/.env`.
+The website runs at http://localhost:5173 and the API runs at http://localhost:4000. PostgreSQL runs in Docker and is available to the local app at `localhost:5433` (mapped to port 5432 inside the container); its data persists in the `postgres-data` Docker volume when the container is stopped. Stop the database with `docker compose down` (this keeps the data).
 
 Discerner registrations, discernment conversations and replies, contact inquiries, and Admin-managed website content are stored by the API in PostgreSQL, not in the visitor's browser. Discerning users can message the Federation from their account; the public floating chat also creates a saved conversation, with a signed HttpOnly visitor cookie allowing the visitor to receive and reply to staff messages without signing in. Admins and Formators can read and reply from the dashboard inbox, which refreshes automatically. The dashboard Messages badge and notification bell refresh from the API; the badge counts unread incoming messages, and the notification list includes recent messages, account registrations, donations, dashboard audit activity, published updates, and managed website-content changes. Opening an unread message marks its incoming messages as read for the staff inbox. The homepage image, monastery details, Carmelife/Carmelights stories, and published Carmelinks updates use the `PageContent` table. Existing browser-managed monastery, story, and update data is copied to PostgreSQL the first time an Admin opens the relevant content section, if no database record exists yet. Content changes report an error if the API or database is unavailable; they are not treated as successfully saved to local storage alone.
 
@@ -35,7 +42,11 @@ Admin account management, including User and Formator counts, contact details, a
 
 The Carmelights content-admin section includes 30-day teaching-view and current-member-bookmark analytics. Opening a published teaching records a view; repeated views from the same browser or consented member are deduplicated per UTC day. Member-linked activity is recorded only for active accounts with recorded privacy consent; anonymous views store no user ID. To add the `ContentInteraction` table to an existing database, run `npm run db:generate` followed by `npm run db:push`. These analytics are engagement reporting only; a LightFM recommendation model and personalized reading recommendations are not currently implemented.
 
+Discernment progress can use optional, member-consented engagement tracking. Members can enable or turn it off from **Account → Discernment**; turning it off deletes recorded discernment activity but leaves the current stage unchanged. The site timer pauses when the browser tab is hidden and stops after 10 minutes without interaction. Carmelights teachings count as completed after the configured share of their estimated reading time (estimated from word count and reading speed). Prayer/reflection milestones are self-reported check-ins; their text is never collected. Community-contact milestones count messages a member sends to Federation staff. Admins and staff with **Manage Details** access set cumulative requirements under **Manage Details → Discernment milestones**. Users can see each requirement and their current progress, and their stage advances automatically when every configured nonzero requirement is met. All-zero requirements leave that transition disabled; these measures indicate site engagement, not spiritual readiness. After updating an existing database, run `npm run db:generate` and `npm run db:push`.
+
 Admins can manually record donations from **Donations → Record Donation** and review them under **Transactions**. Transactions combines public-form submissions with manual entries and labels each record by source. A manual entry can include donor details, payment method and reference, and an optional JPG, PNG, WebP, or PDF proof (up to 5 MB). In offline demo mode, public-form submissions and manual records stay together in that browser; proof files for manual entries are limited to 1.5 MB. After pulling schema changes, run `npm run db:push` to update the local database before using database-backed donations.
+
+The public donation form can use Xendit-hosted test checkout. Set `XENDIT_SECRET_KEY` in `server/.env` to the **test-mode secret key** (the server also accepts `XENDIT_TEST_SECRET_KEY`), and set `XENDIT_CALLBACK_TOKEN` to the callback token configured in Xendit's Dashboard. In **Settings → Developers → Webhooks**, configure the invoice webhook to `https://<your-public-https-host>/api/donations/xendit-webhook`; a local app needs an HTTPS tunnel so Xendit can reach the callback. Apply the new database columns with `npm run db:generate` and `npm run db:push`, then restart the API. Checkout is enabled only when both server settings exist. Each payment channel must also be activated for the Xendit account: open **Payment Channels → Activate Payment Channels** in the Dashboard and request activation for channels such as Bank Transfer. An API key with Write permission does not by itself activate a payment channel; some channels require account verification. Xendit redirects the donor back to the donation page, but the donation is marked paid only after the server validates Xendit's callback token and invoice amount. Test payments do not move real funds; verify the test-mode dashboard and selected payment channels before live use.
 
 The **Audit Logs** section is available to Admins and Formators. It lists staff sign-ins/sign-outs and recorded administrative changes with the actor and timestamp. Public donation submissions and donation status changes are also recorded, but donation audit entries and donation notifications are visible to Admins only. Database-backed activity is stored in PostgreSQL; offline demo activity is stored in that browser. Public donation-form submissions do not require proof files; proof upload is only an optional field when staff record a donation manually.
 

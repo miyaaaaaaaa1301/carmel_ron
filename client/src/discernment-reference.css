@@ -8,6 +8,7 @@
 
 .discernment-guide-hero,
 .discernment-guide-content,
+.discernment-vocation-requirements,
 .discernment-guide-practices,
 .discernment-guide-note {
   width: min(1120px, calc(100% - 56px));
@@ -101,6 +102,16 @@
   font-weight: 700;
 }
 
+.discernment-guide-stage-transition {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--guide-gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .discernment-guide-stage h3,
 .discernment-guide-practice-grid h3 {
   margin: 0 0 6px;
@@ -141,6 +152,72 @@
 .discernment-guide-practices {
   padding: 62px 0 78px;
   border-top: 1px solid #e9e1d8;
+}
+
+.discernment-vocation-requirements {
+  padding: 62px 0 72px;
+  border-top: 1px solid #e9e1d8;
+}
+
+.discernment-vocation-requirements .discernment-guide-heading {
+  max-width: 800px;
+}
+
+.discernment-requirements-box {
+  padding: 18px 26px;
+  border: 1px solid #e8dfd4;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.discernment-requirements-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discernment-requirements-list li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #eee7df;
+}
+
+.discernment-requirements-list li:first-child {
+  padding-top: 6px;
+}
+
+.discernment-requirements-list li:last-child {
+  border-bottom: 0;
+}
+
+.discernment-requirements-list li > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3ece3;
+  color: var(--guide-gold);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.discernment-requirements-list h3 {
+  margin: 1px 0 7px;
+  color: var(--guide-ink);
+  font-size: 17px;
+}
+
+.discernment-requirements-list p {
+  margin: 0;
+  color: var(--guide-muted);
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .discernment-guide-practice-grid {
@@ -313,6 +390,181 @@
   font-size: 14px;
 }
 
+.discernment-guide-milestones {
+  margin-top: 18px;
+  padding: 14px 15px;
+  border-radius: 8px;
+  background: #f8f3ed;
+}
+
+.discernment-guide-reading-note {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--guide-gold);
+  background: #f8f3ed;
+  font-size: 13px !important;
+}
+
+.discernment-guide-milestones > b {
+  color: var(--guide-ink);
+  font-size: 13px;
+}
+
+.discernment-guide-milestones > p {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.discernment-guide-milestones ul {
+  gap: 5px;
+  margin-top: 8px;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.discernment-guide-milestones li {
+  display: list-item;
+  color: var(--guide-muted);
+  font-size: 12px;
+}
+
+.discernment-milestones,
+.discernment-tracking-settings {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0;
+  padding: 22px;
+  border: 1px solid #e8dfd4;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.discernment-milestones h3,
+.discernment-tracking-settings h3 {
+  margin: 5px 0 8px;
+  color: var(--guide-ink);
+  font-size: 20px;
+}
+
+.discernment-milestones p,
+.discernment-tracking-settings p {
+  margin: 0;
+  color: var(--guide-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.discernment-milestones > ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discernment-milestones > ul li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee7df;
+  color: #554a40;
+  font-size: 14px;
+}
+
+.discernment-milestones > ul li b {
+  flex: 0 0 auto;
+  color: var(--guide-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.discernment-milestone-empty {
+  padding: 12px 14px;
+  border-radius: 7px;
+  background: #f8f3ed;
+}
+
+.discernment-tracking-settings {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  background: #f8f3ed;
+}
+
+.discernment-tracking-settings .button {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.discernment-criteria-admin {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.discernment-criteria-form {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.discernment-criteria-transition,
+.discernment-criteria-reading {
+  padding: 20px;
+  border: 1px solid #e8dfd4;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.discernment-criteria-transition .panel-heading,
+.discernment-criteria-reading .panel-heading {
+  margin-bottom: 16px;
+}
+
+.discernment-criteria-transition h2,
+.discernment-criteria-reading h2 {
+  margin: 5px 0;
+  color: var(--guide-ink);
+  font-size: 19px;
+}
+
+.discernment-criteria-transition .panel-heading p,
+.discernment-criteria-reading .panel-heading p,
+.discernment-criteria-note {
+  margin: 5px 0 0;
+  color: var(--guide-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.discernment-criteria-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.discernment-criteria-fields label {
+  display: grid;
+  gap: 7px;
+  color: var(--guide-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.discernment-criteria-fields input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #ded5ca;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--guide-ink);
+  font: inherit;
+}
+
+.discernment-criteria-form > .button {
+  justify-self: start;
+  min-height: 44px;
+}
+
 @media (max-width: 335px) {
   html,
   body {
@@ -323,6 +575,7 @@
 @media (max-width: 760px) {
   .discernment-guide-hero,
   .discernment-guide-content,
+  .discernment-vocation-requirements,
   .discernment-guide-practices,
   .discernment-guide-note {
     width: calc(100% - 36px);
@@ -351,6 +604,7 @@
   }
 
   .discernment-guide-stage-list,
+  .discernment-requirements-list,
   .discernment-guide-practice-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -379,9 +633,40 @@
     padding: 20px 17px;
   }
 
+  .discernment-vocation-requirements {
+    padding-block: 48px;
+  }
+
+  .discernment-requirements-list li {
+    padding: 18px 16px;
+  }
+
   .discernment-guide-stage-number {
     width: 36px;
     height: 36px;
+  }
+
+  .discernment-criteria-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .discernment-criteria-form {
+    padding: 16px;
+  }
+
+  .discernment-criteria-transition,
+  .discernment-criteria-reading {
+    padding: 15px;
+  }
+
+  .discernment-tracking-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .discernment-milestones > ul li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
   }
 
   .discernment-guide-note {
@@ -399,5 +684,272 @@
 
   .discernment-contact .button {
     justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .discernment-guide-hero,
+  .discernment-guide-content,
+  .discernment-vocation-requirements,
+  .discernment-guide-practices,
+  .discernment-guide-note,
+  .discernment-guide-practical {
+    width: calc(100% - 32px);
+  }
+
+  .discernment-guide-hero {
+    width: 100%;
+    padding: 38px 20px 34px;
+    background: linear-gradient(145deg, #f8f2e9 0%, #fffdfa 78%);
+  }
+
+  .discernment-guide-hero > .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .discernment-guide-hero h1 {
+    margin: 12px 0;
+    font-size: clamp(37px, 11vw, 48px);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+  }
+
+  .discernment-guide-hero > p {
+    max-width: 36rem;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .discernment-guide-actions {
+    display: grid;
+    gap: 9px;
+    margin-top: 20px;
+  }
+
+  .discernment-guide-actions .button {
+    width: 100%;
+    min-height: 46px;
+    font-size: 13px;
+  }
+
+  .discernment-guide-content,
+  .discernment-vocation-requirements,
+  .discernment-guide-practices {
+    padding-block: 36px;
+  }
+
+  .discernment-guide-heading {
+    margin-bottom: 20px;
+  }
+
+  .discernment-guide-heading h2,
+  .discernment-guide-practices h2 {
+    margin: 8px 0;
+    font-size: 28px;
+    line-height: 1.16;
+    letter-spacing: -0.02em;
+  }
+
+  .discernment-guide-heading > p,
+  .discernment-guide-note p {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .discernment-guide-reading-note {
+    padding: 10px 12px;
+    font-size: 12px !important;
+  }
+
+  .discernment-guide-stage-list {
+    gap: 10px;
+  }
+
+  .discernment-guide-stage {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 11px;
+    padding: 17px 14px;
+    border-color: #e9dfd3;
+    border-radius: 9px;
+    box-shadow: 0 3px 12px #3d2e2408;
+  }
+
+  .discernment-guide-stage-number {
+    width: 30px;
+    height: 30px;
+    margin-top: 1px;
+    font-size: 11px;
+  }
+
+  .discernment-guide-stage-transition {
+    margin-bottom: 5px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  .discernment-guide-stage h3 {
+    margin-bottom: 5px;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .discernment-guide-stage p,
+  .discernment-guide-stage li {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .discernment-guide-stage ul {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .discernment-guide-milestones {
+    margin-top: 13px;
+    padding: 11px 12px;
+    border: 1px solid #eee6dc;
+  }
+
+  .discernment-guide-milestones > b {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .discernment-guide-milestones > p,
+  .discernment-guide-milestones li {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .discernment-requirements-box {
+    padding: 4px 16px;
+    border-radius: 9px;
+    box-shadow: 0 3px 12px #3d2e2408;
+  }
+
+  .discernment-requirements-list {
+    gap: 0;
+  }
+
+  .discernment-requirements-list li,
+  .discernment-requirements-list li:first-child {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 11px;
+    padding: 14px 0;
+  }
+
+  .discernment-requirements-list li > span {
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+  }
+
+  .discernment-requirements-list h3 {
+    margin: 1px 0 4px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .discernment-requirements-list p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .discernment-guide-practice-grid {
+    gap: 0;
+    margin-top: 17px;
+    padding: 0 15px;
+    border: 1px solid #e8dfd4;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .discernment-guide-practice-grid article {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee7df;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .discernment-guide-practice-grid article:last-child {
+    border-bottom: 0;
+  }
+
+  .discernment-guide-practice-grid article > svg {
+    grid-row: span 2;
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0 4px;
+  }
+
+  .discernment-guide-practice-grid h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+  }
+
+  .discernment-guide-practice-grid p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .discernment-guide-practical {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 8px 0 38px;
+  }
+
+  .discernment-guide-practical-image {
+    width: 100%;
+    height: 178px;
+    border: 0;
+    border-radius: 9px;
+    box-shadow: none;
+  }
+
+  .discernment-guide-practical-content {
+    padding-top: 13px;
+  }
+
+  .discernment-guide-practical-content > .eyebrow {
+    font-size: 10px;
+  }
+
+  .discernment-guide-practical-content ol {
+    gap: 5px;
+    margin: 10px 0 13px;
+  }
+
+  .discernment-guide-practical-content li {
+    align-items: center;
+    font-size: 12px;
+  }
+
+  .discernment-guide-practical-content > .button {
+    min-height: 42px;
+    font-size: 12px;
+  }
+
+  .discernment-guide-note {
+    align-items: stretch;
+    gap: 15px;
+    margin-bottom: 38px;
+    padding: 21px 17px;
+    border-radius: 9px;
+  }
+
+  .discernment-guide-note h2 {
+    margin: 8px 0;
+    font-size: 23px;
+    line-height: 1.2;
+  }
+
+  .discernment-guide-note .button {
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13px;
   }
 }
