@@ -8,35 +8,79 @@ import helmet from 'helmet'
 import jwt from 'jsonwebtoken'
 import { Prisma, PrismaClient } from '@prisma/client'
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { TextReader, TextWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js'
 import { z } from 'zod'
 
 const app = express()
 const prisma = new PrismaClient()
+const homepageContentCache = new Map<string, {
+  content: Awaited<ReturnType<typeof prisma.pageContent.findUnique>>
+  expiresAt: number
+}>()
+const homepageContentCacheTtlMs = 60_000
+const homepageInlineImageMaxChars = 350_000
+const homepageHeroImageFallback = '/assets/images/home-hero.jpg'
 const port = Number(process.env.PORT || 4000)
-const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-only-change-this-secret')
+const isRailwayDeployment = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PUBLIC_DOMAIN)
+const isProduction = process.env.NODE_ENV === 'production' || isRailwayDeployment
+function homepageContentForResponse(pageKey: string, content: NonNullable<Awaited<ReturnType<typeof prisma.pageContent.findUnique>>>) {
+  if (pageKey !== 'HOME_HERO_IMAGE') return content
+  const blocks = content.blocks
+  if (!blocks || typeof blocks !== 'object' || Array.isArray(blocks)) return content
+  const image = 'image' in blocks ? blocks.image : null
+  if (typeof image !== 'string' || !image.startsWith('data:image/') || image.length <= homepageInlineImageMaxChars) return content
+  return { ...content, blocks: { ...blocks, image: homepageHeroImageFallback } }
+}
+const configuredProductionOrigin = process.env.PUBLIC_APP_URL
+  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN.replace(/^https?:\/\//, '')}` : '')
+const productionOrigin = new URL(configuredProductionOrigin || 'https://carmmessage-production.up.railway.app')
+if (isProduction && (productionOrigin.protocol !== 'https:' || productionOrigin.hostname === 'localhost' || productionOrigin.hostname.endsWith('.localhost'))) {
+  throw new Error('Set PUBLIC_APP_URL to the public HTTPS website URL in production.')
+}
+const clientOrigin = isProduction
+  ? productionOrigin.origin
+  : process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+const jwtSecret = process.env.JWT_SECRET || (isProduction ? '' : 'local-only-change-this-secret')
 if (!jwtSecret) throw new Error('Set JWT_SECRET before starting in production.')
 const lightfmServiceUrl = process.env.LIGHTFM_SERVICE_URL || 'http://127.0.0.1:8001'
 const lightfmApiToken = process.env.LIGHTFM_API_TOKEN || ''
 const xenditSecretKey = process.env.XENDIT_SECRET_KEY || process.env.XENDIT_TEST_SECRET_KEY || ''
 const xenditCallbackToken = process.env.XENDIT_CALLBACK_TOKEN || ''
-const demoAuthEnabled = process.env.DEMO_AUTH_ENABLED === 'true' && process.env.NODE_ENV !== 'production'
-const demoAdminEmail = process.env.DEMO_ADMIN_EMAIL?.toLowerCase() || ''
-const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD || ''
-const offlineDemoAccounts = {
-  'admin@offline': { name: 'Demo Administrator', role: 'ADMIN' as const, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
-  'staff@offline': { name: 'Demo Formator', role: 'FORMATOR' as const, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
-  'user@offline': { name: 'Demo Community User', role: 'USER' as const, phone: '+63 900 000 0000', address: 'Local demonstration account' },
-}
-const offlineDemoPassword = '12345678'
-const systemBackupPassword = 'carmelites'
+const resendApiKey = process.env.RESEND_API_KEY || ''
+const resendFrom = process.env.RESEND_FROM || ''
 const systemBackupFormat = 'carmels-in-communion-backup'
 const maxBackupPlaintextBytes = 45 * 1024 * 1024
+async function sendEmail(email: { to: string; subject: string; text: string; html: string }): Promise<void> {
+  if (!resendApiKey || !resendFrom) throw new Error('Resend email is not configured. Set RESEND_API_KEY and RESEND_FROM in server/.env.')
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from: resendFrom, ...email }),
+    signal: AbortSignal.timeout(15000),
+  })
+  if (response.ok) return
+  const responseText = await response.text()
+  let detail = ''
+  try {
+    const body: unknown = responseText ? JSON.parse(responseText) : null
+    if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') detail = body.message
+    else if (body && typeof body === 'object' && 'name' in body && typeof body.name === 'string') detail = body.name
+  } catch {
+    detail = ''
+  }
+  throw new Error(`Resend email request failed (HTTP ${response.status})${detail ? `: ${detail}` : '.'}`)
+}
 const backupTables = [
   { name: 'User', columns: ['id', 'name', 'email', 'phone', 'address', 'privacyConsentAt', 'privacyPolicyVersion', 'discernmentTrackingConsentAt', 'passwordHash', 'role', 'isActive', 'canManageUsers', 'canManageDetails', 'canManageUpdates', 'createdAt', 'updatedAt'], uniqueColumns: ['email'] },
   { name: 'Monastery', columns: ['id', 'name', 'city', 'slug', 'description', 'imageUrl', 'address', 'contact', 'sortOrder', 'createdAt', 'updatedAt'], uniqueColumns: ['slug'] },
   { name: 'Discernment', columns: ['id', 'userId', 'stage', 'monastery', 'note', 'createdAt', 'updatedAt'], uniqueColumns: ['userId'] },
-  { name: 'Donation', columns: ['id', 'referenceCode', 'amount', 'type', 'fund', 'paymentMethod', 'xenditInvoiceId', 'xenditInvoiceUrl', 'paymongoPaymentIntentId', 'paymongoQrImageUrl', 'paymongoQrExpiresAt', 'isManual', 'isAnonymous', 'donorName', 'donorEmail', 'donorPhone', 'wantsReceipt', 'paymentReference', 'beneficiaryMonasteryId', 'status', 'createdAt', 'updatedAt'], uniqueColumns: ['referenceCode', 'xenditInvoiceId', 'paymongoPaymentIntentId'] },
+  { name: 'Donation', columns: ['id', 'referenceCode', 'amount', 'type', 'fund', 'paymentMethod', 'xenditInvoiceId', 'xenditInvoiceUrl', 'paymongoPaymentIntentId', 'paymongoQrImageUrl', 'paymongoQrExpiresAt', 'isManual', 'isAnonymous', 'donorName', 'donorEmail', 'donorPhone', 'wantsReceipt', 'receiptEmailSentAt', 'receiptEmailSendingAt', 'paymentReference', 'beneficiaryMonasteryId', 'status', 'createdAt', 'updatedAt'], uniqueColumns: ['referenceCode', 'xenditInvoiceId', 'paymongoPaymentIntentId'] },
   { name: 'DonationFile', columns: ['id', 'donationId', 'fileUrl', 'type', 'fileName', 'createdAt'], uniqueColumns: [] },
   { name: 'Conversation', columns: ['id', 'userId', 'name', 'email', 'subject', 'category', 'isRead', 'lastMessageAt', 'createdAt'], uniqueColumns: ['userId'] },
   { name: 'Message', columns: ['id', 'conversationId', 'senderId', 'senderType', 'body', 'readAt', 'createdAt'], uniqueColumns: [] },
@@ -68,8 +112,17 @@ const backupEnumColumns: Record<string, Record<string, string>> = {
 }
 
 app.disable('x-powered-by')
-app.use(helmet())
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173', credentials: true }))
+app.set('trust proxy', 1)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", 'data:', 'https://images.unsplash.com'],
+      mediaSrc: ["'self'", 'data:'],
+      frameSrc: ["'self'", 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
+    },
+  },
+}))
+app.use(cors({ origin: clientOrigin, credentials: true }))
 app.use(express.json({ limit: '16mb' }))
 app.use(cookieParser())
 app.use('/api/auth', rateLimit({
@@ -81,22 +134,50 @@ app.use('/api/auth', rateLimit({
   handler: (_req, res) => res.setHeader('Retry-After', '300').status(429).json({ error: 'Too many authentication attempts. Please wait 5 minutes before trying again.' }),
 }))
 app.use('/api/contact', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false }))
+const passwordResetRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (_req, res) => res.setHeader('Retry-After', '900').status(429).json({ error: 'Too many password reset requests. Please wait 15 minutes before trying again.' }),
+})
 app.use('/api/content/interactions', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }))
 app.use('/api/discernment/activity', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }))
 
-const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' as const, path: '/' }
+const cookieOptions = { httpOnly: true, secure: isProduction, sameSite: 'strict' as const, path: '/' }
 const visitorChatCookieOptions = { ...cookieOptions, path: '/api/chat' }
-type AuthRequest = Request & { auth?: { id: string; role: 'ADMIN' | 'FORMATOR' | 'USER'; demo?: boolean; canManageUsers?: boolean; canManageDetails?: boolean; canManageUpdates?: boolean } }
-function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
+type AuthRequest = Request & { auth?: { id: string; role: 'ADMIN' | 'FORMATOR' | 'USER'; canManageUsers: boolean; canManageDetails: boolean; canManageUpdates: boolean } }
+async function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.carmel_session as string | undefined
   if (!token) return res.status(401).json({ error: 'Sign in is required.' })
+  let claims: jwt.JwtPayload
   try {
-    const claims = jwt.verify(token, jwtSecret) as AuthRequest['auth']
-    if (!claims?.id || !claims.role) return res.status(401).json({ error: 'Invalid session.' })
-    if (claims.demo && !demoAuthEnabled) return res.status(401).json({ error: 'Demo sign-in is disabled.' })
-    req.auth = claims
+    const verified = jwt.verify(token, jwtSecret)
+    if (typeof verified === 'string' || typeof verified.id !== 'string') return res.status(401).json({ error: 'Invalid session.' })
+    claims = verified
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: 'Your session has expired. Please sign in again.' })
+    }
+    return next(error)
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: claims.id as string },
+      select: { id: true, role: true, isActive: true, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
+    })
+    if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive or no longer exists.' })
+    req.auth = {
+      id: user.id,
+      role: user.role,
+      canManageUsers: user.canManageUsers,
+      canManageDetails: user.canManageDetails,
+      canManageUpdates: user.canManageUpdates,
+    }
     next()
-  } catch { return res.status(401).json({ error: 'Your session has expired. Please sign in again.' }) }
+  } catch (error) {
+    next(error)
+  }
 }
 function allowRoles(...roles: Array<'ADMIN' | 'FORMATOR' | 'USER'>) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -115,26 +196,7 @@ async function authorizeStaffPermission(req: AuthRequest, res: Response, permiss
     res.status(403).json({ error: 'You do not have access to this resource.' })
     return false
   }
-  if (req.auth.demo) {
-    if (!demoAuthEnabled) {
-      res.status(401).json({ error: 'Demo sign-in is disabled.' })
-      return false
-    }
-    if (!req.auth[permission]) {
-      res.status(403).json({ error: 'Your administrator has not granted access to this resource.' })
-      return false
-    }
-    return true
-  }
-  const user = await prisma.user.findUnique({
-    where: { id: req.auth.id },
-    select: { role: true, isActive: true, canManageUsers: true, canManageDetails: true, canManageUpdates: true },
-  })
-  if (!user?.isActive || user.role !== 'FORMATOR') {
-    res.status(401).json({ error: 'This account is inactive.' })
-    return false
-  }
-  if (!user[permission]) {
+  if (!req.auth[permission]) {
     res.status(403).json({ error: 'Your administrator has not granted access to this resource.' })
     return false
   }
@@ -145,7 +207,6 @@ function validate<T extends z.ZodType>(schema: T, input: unknown) {
   return result.success ? { data: result.data, error: null } : { data: null, error: result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) }
 }
 async function audit(userId: string, action: string, entity: string, entityId: string, meta?: Prisma.InputJsonValue) {
-  if (userId.startsWith('local-demo-') && demoAuthEnabled) return
   await prisma.auditLog.create({ data: { userId, action, entity, entityId, meta } })
 }
 const asyncRoute = (handler: (req: AuthRequest, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => Promise.resolve(handler(req as AuthRequest, res)).catch(next)
@@ -168,14 +229,14 @@ async function callLightfm<T>(path: string, body?: unknown, timeoutMs = 10_000):
   if (!response.ok) throw new Error(result.detail || `The LightFM service returned HTTP ${response.status}.`)
   return result
 }
-async function createEncryptedBackupArchive(payload: unknown) {
+async function createEncryptedBackupArchive(payload: unknown, password: string) {
   const plaintext = Buffer.from(JSON.stringify(payload), 'utf8')
   if (plaintext.byteLength > maxBackupPlaintextBytes) {
     throw new Error('The system backup is larger than the supported 45 MB limit.')
   }
   const writer = new ZipWriter(new Uint8ArrayWriter())
   await writer.add('carmels-in-communion-backup.json', new TextReader(plaintext.toString('utf8')), {
-    password: systemBackupPassword,
+    password,
     encryptionStrength: 3,
   })
   return Buffer.from(await writer.close())
@@ -273,18 +334,14 @@ function backupValueSql(table: typeof backupTables[number], column: string, row:
   return Prisma.sql`${sqlValue}`
 }
 const backupPasswordSchema = z.string().min(1).max(128)
-function isSystemBackupPassword(value: string) {
-  const supplied = Buffer.from(value)
-  const expected = Buffer.from(systemBackupPassword)
-  return supplied.byteLength === expected.byteLength && timingSafeEqual(supplied, expected)
-}
+const backupExportPasswordSchema = z.string().min(16).max(128)
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',
   service: 'carmel-in-communion-api',
-  demoAuthEnabled,
   xenditConfigured: Boolean(xenditSecretKey),
   xenditEnabled: Boolean(xenditSecretKey && xenditCallbackToken),
+  emailConfigured: Boolean(resendApiKey && resendFrom),
 }))
 
 app.post('/api/admin/system-backup/export', authenticate, allowRoles('ADMIN'), rateLimit({
@@ -293,12 +350,15 @@ app.post('/api/admin/system-backup/export', authenticate, allowRoles('ADMIN'), r
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 }), asyncRoute(async (req, res) => {
+  const parsedPassword = backupExportPasswordSchema.safeParse(req.get('x-system-backup-password') || '')
+  if (!parsedPassword.success) {
+    return res.status(400).json({ error: 'Choose a unique backup password with at least 16 characters.' })
+  }
   const exportedAt = new Date().toISOString()
-  const auditUserId = req.auth!.id.startsWith('local-demo-') && demoAuthEnabled ? null : req.auth!.id
   const backupArchive = await prisma.$transaction(async (tx) => {
     await tx.auditLog.create({
       data: {
-        userId: auditUserId,
+        userId: req.auth!.id,
         action: 'SYSTEM_BACKUP_EXPORT',
         entity: 'SystemBackup',
         meta: { exportedAt },
@@ -310,7 +370,7 @@ app.post('/api/admin/system-backup/export', authenticate, allowRoles('ADMIN'), r
         Prisma.raw(`SELECT * FROM "${table.name}" ORDER BY "id"`),
       )
     }
-    return createEncryptedBackupArchive({ format: systemBackupFormat, version: 1, exportedAt, tables })
+    return createEncryptedBackupArchive({ format: systemBackupFormat, version: 1, exportedAt, tables }, parsedPassword.data)
   }, { maxWait: 10_000, timeout: 120_000 })
   const filename = `carmels-system-backup-${exportedAt.replaceAll(':', '-').replaceAll('.', '-')}.zip`
   res.setHeader('Cache-Control', 'no-store')
@@ -328,7 +388,7 @@ app.post('/api/admin/system-backup/import', authenticate, allowRoles('ADMIN'), r
   if (!Buffer.isBuffer(req.body) || req.body.byteLength === 0) return res.status(400).json({ error: 'Select a valid Carmel system backup file.' })
   const password = req.get('x-system-backup-password') || ''
   const parsedPassword = backupPasswordSchema.safeParse(password)
-  if (!parsedPassword.success || !isSystemBackupPassword(parsedPassword.data)) return res.status(400).json({ error: 'The backup encryption password is incorrect.' })
+  if (!parsedPassword.success) return res.status(400).json({ error: 'Enter the backup encryption password.' })
   let backup: ReturnType<typeof validateSystemBackupPayload>
   try {
     if (req.body.byteLength > 0 && req.body[0] === 0x50 && req.body[1] === 0x4b) {
@@ -341,7 +401,6 @@ app.post('/api/admin/system-backup/import', authenticate, allowRoles('ADMIN'), r
     throw error
   }
   const importedAt = new Date().toISOString()
-  const auditUserId = req.auth!.id.startsWith('local-demo-') && demoAuthEnabled ? null : req.auth!.id
   const result = await prisma.$transaction(async (tx) => {
     let mergedRecords = 0
     let skippedRecords = 0
@@ -393,7 +452,7 @@ app.post('/api/admin/system-backup/import', authenticate, allowRoles('ADMIN'), r
     }
     await tx.auditLog.create({
       data: {
-        userId: auditUserId,
+        userId: req.auth!.id,
         action: 'SYSTEM_BACKUP_IMPORT',
         entity: 'SystemBackup',
         meta: { backupExportedAt: backup.exportedAt, importedAt, mergedRecords, skippedRecords },
@@ -404,7 +463,7 @@ app.post('/api/admin/system-backup/import', authenticate, allowRoles('ADMIN'), r
   res.json({ ...result, backupExportedAt: backup.exportedAt, importedAt, mode: 'merge' })
 }))
 
-const memberPrivacyVersion = '2026-10-02'
+const memberPrivacyVersion = '2026-11-06'
 const registerSchema = z.object({ name: z.string().trim().min(2).max(100), email: z.email().transform((value) => value.toLowerCase()), gender: z.enum(['MALE', 'FEMALE', 'ANONYMOUS']).default('ANONYMOUS'), phone: z.string().trim().min(7).max(30), address: z.string().trim().min(5).max(300), password: z.string().min(10).max(128), privacyConsent: z.literal(true) })
 app.post('/api/auth/register', asyncRoute(async (req, res) => {
   const parsed = validate(registerSchema, req.body)
@@ -420,36 +479,14 @@ app.post('/api/auth/register', asyncRoute(async (req, res) => {
     throw error
   }
 }))
-const offlineDemoEmails = Object.keys(offlineDemoAccounts)
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().refine((value) => z.email().safeParse(value).success || offlineDemoEmails.includes(value)),
+  email: z.email().trim().toLowerCase(),
   password: z.string().min(1).max(128),
 })
 app.post('/api/auth/login', asyncRoute(async (req, res) => {
   const parsed = validate(loginSchema, req.body)
   if (parsed.error) return res.status(400).json({ error: 'Enter a valid email and password.' })
   const input = parsed.data!
-  if (input.email in offlineDemoAccounts) {
-    const demoAccount = offlineDemoAccounts[input.email as keyof typeof offlineDemoAccounts]
-    const providedPassword = Buffer.from(input.password)
-    const expectedPassword = Buffer.from(offlineDemoPassword)
-    const passwordMatches = providedPassword.length === expectedPassword.length && timingSafeEqual(providedPassword, expectedPassword)
-    if (!demoAuthEnabled || !passwordMatches) return res.status(401).json({ error: 'Email or password is incorrect.' })
-    const id = `local-demo-${demoAccount.role.toLowerCase()}`
-    const claims = {
-      id,
-      role: demoAccount.role,
-      demo: true,
-      ...(demoAccount.role === 'USER' ? {} : {
-        canManageUsers: demoAccount.canManageUsers,
-        canManageDetails: demoAccount.canManageDetails,
-        canManageUpdates: demoAccount.canManageUpdates,
-      }),
-    }
-    const token = jwt.sign(claims, jwtSecret, { expiresIn: '8h' })
-    res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
-    return res.json({ user: { id, email: input.email, ...demoAccount, demo: true } })
-  }
   const user = await prisma.user.findUnique({ where: { email: input.email } })
   if (user) {
     if (!user.isActive || !(await bcrypt.compare(input.password, user.passwordHash))) return res.status(401).json({ error: 'Email or password is incorrect.' })
@@ -458,25 +495,80 @@ app.post('/api/auth/login', asyncRoute(async (req, res) => {
     res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
     return res.json({ user: { id: user.id, name: user.name, email: user.email, gender: user.gender, phone: user.phone, address: user.address, role: user.role, discernmentTrackingEnabled: Boolean(user.discernmentTrackingConsentAt), canManageUsers: user.canManageUsers, canManageDetails: user.canManageDetails, canManageUpdates: user.canManageUpdates } })
   }
-  const providedPassword = Buffer.from(input.password)
-  const expectedPassword = Buffer.from(demoAdminPassword)
-  const passwordMatches = providedPassword.length === expectedPassword.length && timingSafeEqual(providedPassword, expectedPassword)
-  if (demoAuthEnabled && demoAdminEmail && demoAdminPassword && input.email === demoAdminEmail && passwordMatches) {
-    const user = { id: 'local-demo-admin', name: 'Local Demo Administrator', email: demoAdminEmail, role: 'ADMIN' as const }
-    const token = jwt.sign({ id: user.id, role: user.role, demo: true }, jwtSecret, { expiresIn: '8h' })
-    res.cookie('carmel_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 })
-    return res.json({ user })
-  }
   return res.status(401).json({ error: 'Email or password is incorrect.' })
+}))
+const passwordResetRequestSchema = z.object({ email: z.email().transform((value) => value.toLowerCase()) })
+app.post('/api/auth/password-reset/request', passwordResetRateLimit, asyncRoute(async (req, res) => {
+  const parsed = validate(passwordResetRequestSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Enter a valid email address.' })
+  if (!resendApiKey || !resendFrom) return res.status(503).json({ error: 'Email is not configured yet. Please contact the Federation office for help.' })
+
+  const user = await prisma.user.findUnique({ where: { email: parsed.data!.email }, select: { id: true, isActive: true } })
+  if (user?.isActive) {
+    const token = randomBytes(32).toString('base64url')
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } })
+    await prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    })
+    const resetUrl = `${clientOrigin.replace(/\/$/, '')}/account/reset-password?token=${encodeURIComponent(token)}`
+    try {
+      await sendEmail({
+        to: parsed.data!.email,
+        subject: 'Reset your Carmels in Communion password',
+        text: `We received a request to reset the password for your Carmels in Communion account.\n\nUse this link within one hour to choose a new password:\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        html: `<p>We received a request to reset the password for your Carmels in Communion account.</p><p><a href="${resetUrl}">Choose a new password</a>. This link expires in one hour.</p><p>If you did not request this, you can ignore this email.</p>`,
+      })
+    } catch (error) {
+      await prisma.passwordResetToken.deleteMany({ where: { tokenHash } })
+      console.error('Password reset email delivery failed:', error instanceof Error ? error.message : 'Unknown error')
+      return res.status(503).json({ error: 'We could not send the reset email right now. Please try again later.' })
+    }
+  }
+  res.status(202).json({ message: 'If an account exists for that email address, a password reset link will be sent.' })
+}))
+const passwordResetSchema = z.object({
+  token: z.string().min(32).max(128),
+  password: z.string().min(10).max(128),
+})
+app.post('/api/auth/password-reset/confirm', passwordResetRateLimit, asyncRoute(async (req, res) => {
+  const parsed = validate(passwordResetSchema, req.body)
+  if (parsed.error) return res.status(400).json({ error: 'Enter a valid reset link and a password of at least 10 characters.' })
+  const tokenHash = createHash('sha256').update(parsed.data!.token).digest('hex')
+  const reset = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: { id: true, userId: true, expiresAt: true, user: { select: { isActive: true } } },
+  })
+  if (!reset || reset.expiresAt <= new Date() || !reset.user.isActive) {
+    if (reset) await prisma.passwordResetToken.deleteMany({ where: { id: reset.id } })
+    return res.status(400).json({ error: 'This password reset link is invalid or expired. Request a new one to continue.' })
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data!.password, 12)
+  const completed = await prisma.$transaction(async (transaction) => {
+    const consumed = await transaction.passwordResetToken.deleteMany({
+      where: { id: reset.id, expiresAt: { gt: new Date() } },
+    })
+    if (consumed.count !== 1) return false
+    await transaction.user.update({ where: { id: reset.userId }, data: { passwordHash } })
+    await transaction.passwordResetToken.deleteMany({ where: { userId: reset.userId } })
+    return true
+  })
+  if (!completed) return res.status(400).json({ error: 'This password reset link is invalid or expired. Request a new one to continue.' })
+  res.json({ message: 'Your password has been updated. You can now sign in.' })
 }))
 app.post('/api/auth/logout', asyncRoute(async (req, res) => {
   res.clearCookie('carmel_session', cookieOptions)
   const token = req.cookies?.carmel_session as string | undefined
   if (token) {
     try {
-      const claims = jwt.verify(token, jwtSecret) as AuthRequest['auth']
-      if (claims?.id && (claims.role === 'ADMIN' || claims.role === 'FORMATOR') && !claims.demo) {
-        await audit(claims.id, 'LOGOUT', 'Session', claims.id, { role: claims.role })
+      const verified = jwt.verify(token, jwtSecret)
+      const id = typeof verified === 'string' ? null : verified.id
+      if (typeof id === 'string') {
+        const user = await prisma.user.findUnique({ where: { id }, select: { role: true, isActive: true } })
+        if (user?.isActive && (user.role === 'ADMIN' || user.role === 'FORMATOR')) {
+          await audit(id, 'LOGOUT', 'Session', id, { role: user.role })
+        }
       }
     } catch (error) {
       if (!(error instanceof jwt.JsonWebTokenError)) throw error
@@ -485,15 +577,6 @@ app.post('/api/auth/logout', asyncRoute(async (req, res) => {
   res.status(204).end()
 }))
 app.get('/api/auth/me', authenticate, asyncRoute(async (req, res) => {
-  if (req.auth!.demo && demoAuthEnabled) {
-    if (req.auth!.id === 'local-demo-admin') {
-      return res.json({ user: { id: req.auth!.id, name: 'Local Demo Administrator', email: demoAdminEmail, role: 'ADMIN', isActive: true } })
-    }
-    const demoEntry = Object.entries(offlineDemoAccounts).find(([, account]) => `local-demo-${account.role.toLowerCase()}` === req.auth!.id)
-    if (!demoEntry) return res.status(401).json({ error: 'Demo account not found.' })
-    const [email, account] = demoEntry
-    return res.json({ user: { id: req.auth!.id, email, ...account, isActive: true, ...req.auth } })
-  }
   const user = await prisma.user.findUnique({ where: { id: req.auth!.id }, select: { id: true, name: true, email: true, gender: true, phone: true, address: true, role: true, isActive: true, canManageUsers: true, canManageDetails: true, canManageUpdates: true } })
   if (!user?.isActive) return res.status(401).json({ error: 'This account is inactive.' })
   res.json({ user })
@@ -508,7 +591,6 @@ const profileUpdateSchema = z.object({
   newPassword: z.string().min(10).max(128).optional(),
 }).refine((input) => !input.newPassword || Boolean(input.currentPassword), { message: 'Enter your current password to set a new password.', path: ['currentPassword'] })
 app.patch('/api/auth/me', authenticate, allowRoles('ADMIN', 'FORMATOR', 'USER'), asyncRoute(async (req, res) => {
-  if (req.auth!.demo) return res.status(400).json({ error: 'Update this prototype account in its local profile editor.' })
   const parsed = validate(profileUpdateSchema, req.body)
   if (parsed.error) return res.status(400).json({ error: 'Please check the profile fields.', details: parsed.error })
   const input = parsed.data!
@@ -561,10 +643,10 @@ app.post('/api/donations', rateLimit({
   if (parsed.error) return res.status(400).json({ error: 'Please check the donation details.', details: parsed.error })
   const input = parsed.data!
   if (!input.anonymous && (!input.name || !input.email)) return res.status(400).json({ error: 'Name and email are required for a named donation.' })
-  if (input.receipt && !input.email && !input.phone) return res.status(400).json({ error: 'Add an email or phone number for the receipt.' })
+  if (input.receipt && !input.email) return res.status(400).json({ error: 'Enter an email address for the acknowledgment receipt.' })
   if (xenditSecretKey) {
     if (!xenditCallbackToken) return res.status(503).json({ error: 'Set XENDIT_CALLBACK_TOKEN in server/.env and configure the matching Xendit webhook before accepting test donations.' })
-    const referenceCode = `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
+    const referenceCode = `CARMEL-${new Date().getFullYear()}-${randomBytes(16).toString('hex').toUpperCase()}`
     const created = await prisma.$transaction(async (tx) => {
       const donation = await tx.donation.create({ data: {
         referenceCode,
@@ -594,9 +676,9 @@ app.post('/api/donations', rateLimit({
       } })
       return donation
     })
-    const configuredOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+    const configuredOrigin = clientOrigin
     let returnOrigin = configuredOrigin
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProduction) {
       const requestOrigin = req.get('origin')
       if (requestOrigin) {
         try {
@@ -679,8 +761,7 @@ app.post('/api/donations', rateLimit({
       invoiceUrl: invoice.invoice_url,
     })
   }
-  const isDemoPayment = demoAuthEnabled && input.reference.trim().toLowerCase() === 'carmelites'
-  const referenceCode = `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
+  const referenceCode = `CARMEL-${new Date().getFullYear()}-${randomBytes(16).toString('hex').toUpperCase()}`
   const retainName = !input.anonymous
   const donation = await prisma.$transaction(async (tx) => {
     const created = await tx.donation.create({ data: {
@@ -695,7 +776,7 @@ app.post('/api/donations', rateLimit({
       donorPhone: retainName || input.receipt ? input.phone || null : null,
       wantsReceipt: input.receipt,
       paymentReference: input.reference || null,
-      status: isDemoPayment ? 'COMPLETED' : input.reference ? 'RECONCILING' : 'PENDING',
+      status: input.reference ? 'RECONCILING' : 'PENDING',
     }, select: { id: true, referenceCode: true, amount: true, paymentMethod: true, isAnonymous: true, status: true, createdAt: true } })
     await tx.auditLog.create({ data: {
       action: 'DONATION_RECEIVED',
@@ -719,8 +800,78 @@ app.post('/api/donations', rateLimit({
       createdAt: created.createdAt,
     }
   })
-  res.status(201).json({ donation })
+  const receiptEmailSent = donation.status === 'COMPLETED' && input.receipt
+    ? await sendDonationAcknowledgment(donation.referenceCode)
+    : false
+  res.status(201).json({ donation: { ...donation, receiptEmailSent } })
 }))
+async function sendDonationAcknowledgment(referenceCode: string): Promise<boolean> {
+  if (!resendApiKey || !resendFrom) {
+    console.warn('Donation acknowledgment email was not sent because Resend is not configured.')
+    return false
+  }
+  const donation = await prisma.donation.findUnique({
+    where: { referenceCode },
+    select: {
+      id: true,
+      referenceCode: true,
+      amount: true,
+      fund: true,
+      paymentMethod: true,
+      donorName: true,
+      isAnonymous: true,
+      donorEmail: true,
+      wantsReceipt: true,
+      status: true,
+      receiptEmailSentAt: true,
+      receiptEmailSendingAt: true,
+      createdAt: true,
+    },
+  })
+  if (!donation || !['COMPLETED', 'VERIFIED'].includes(donation.status) || !donation.wantsReceipt || !donation.donorEmail || donation.receiptEmailSentAt) return false
+  const staleSendingCutoff = new Date(Date.now() - 5 * 60 * 1000)
+  if (donation.receiptEmailSendingAt && donation.receiptEmailSendingAt > staleSendingCutoff) return false
+  const sentAt = new Date()
+  const claimed = await prisma.donation.updateMany({
+    where: {
+      id: donation.id,
+      status: { in: ['COMPLETED', 'VERIFIED'] },
+      wantsReceipt: true,
+      receiptEmailSentAt: null,
+      OR: [{ receiptEmailSendingAt: null }, { receiptEmailSendingAt: { lt: staleSendingCutoff } }],
+    },
+    data: { receiptEmailSendingAt: sentAt },
+  })
+  if (!claimed.count) return false
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!)
+  const name = donation.isAnonymous ? 'Benefactor' : donation.donorName || 'Donor'
+  try {
+    await sendEmail({
+      to: donation.donorEmail,
+      subject: `Donation received — ${donation.referenceCode}`,
+      text: `Dear ${name},\n\nThank you for your generous donation to Carmels in Communion. Your payment has been confirmed and your donation was successfully received.\n\nAcknowledgment reference: ${donation.referenceCode}\nAmount: ${donation.amount.toFixed(2)} PHP\nFund: ${donation.fund}\nPayment method: ${donation.paymentMethod}\nDate: ${donation.createdAt.toLocaleDateString('en-PH')}\n\nPlease keep this email as your acknowledgment. If you have questions, contact ocdnuns.vocpromph@gmail.com.\n\nWith gratitude,\nCarmels in Communion`,
+      html: `<p>Dear ${escapeHtml(name)},</p><p>Thank you for your generous donation to Carmels in Communion. Your payment has been confirmed and your donation was successfully received.</p><table><tbody><tr><th align="left">Acknowledgment reference</th><td>${escapeHtml(donation.referenceCode)}</td></tr><tr><th align="left">Amount</th><td>PHP ${escapeHtml(donation.amount.toFixed(2))}</td></tr><tr><th align="left">Fund</th><td>${escapeHtml(donation.fund)}</td></tr><tr><th align="left">Payment method</th><td>${escapeHtml(donation.paymentMethod)}</td></tr><tr><th align="left">Date</th><td>${escapeHtml(donation.createdAt.toLocaleDateString('en-PH'))}</td></tr></tbody></table><p>Please keep this email as your acknowledgment. For questions, contact <a href="mailto:ocdnuns.vocpromph@gmail.com">ocdnuns.vocpromph@gmail.com</a>.</p><p>With gratitude,<br />Carmels in Communion</p>`,
+    })
+    await prisma.donation.updateMany({
+      where: { id: donation.id, receiptEmailSendingAt: sentAt },
+      data: { receiptEmailSentAt: new Date(), receiptEmailSendingAt: null },
+    })
+    return true
+  } catch (error) {
+    await prisma.donation.updateMany({
+      where: { id: donation.id, receiptEmailSendingAt: sentAt },
+      data: { receiptEmailSendingAt: null },
+    })
+    console.error(`Donation acknowledgment email delivery failed for ${donation.referenceCode}:`, error instanceof Error ? error.message : 'Unknown error')
+    return false
+  }
+}
 app.post('/api/donations/xendit-webhook', asyncRoute(async (req, res) => {
   if (!xenditCallbackToken) return res.status(503).json({ error: 'Xendit webhook verification is not configured.' })
   const callbackToken = req.get('x-callback-token') || ''
@@ -750,7 +901,10 @@ app.post('/api/donations/xendit-webhook', asyncRoute(async (req, res) => {
   if (callback.status === 'PAID' && !donation.amount.equals(new Prisma.Decimal(callback.amount))) {
     return res.status(400).json({ error: 'Xendit invoice amount does not match the donation.' })
   }
-  if (donation.status === 'COMPLETED') return res.json({ received: true })
+  if (donation.status === 'COMPLETED') {
+    await sendDonationAcknowledgment(donation.referenceCode)
+    return res.json({ received: true })
+  }
   const nextStatus = callback.status === 'PAID' ? 'COMPLETED' : 'FAILED'
   await prisma.$transaction(async (tx) => {
     await tx.donation.update({ where: { id: donation.id }, data: { status: nextStatus } })
@@ -761,6 +915,7 @@ app.post('/api/donations/xendit-webhook', asyncRoute(async (req, res) => {
       meta: { referenceCode: donation.referenceCode, status: nextStatus },
     } })
   })
+  if (nextStatus === 'COMPLETED') await sendDonationAcknowledgment(donation.referenceCode)
   res.json({ received: true })
 }))
 app.get('/api/donations/mine', authenticate, allowRoles('USER'), asyncRoute(async (req, res) => {
@@ -1081,10 +1236,35 @@ app.post('/api/account/conversation/messages', authenticate, allowRoles('USER'),
   await evaluateMemberDiscernment(user.id)
   res.status(201).json({ conversation })
 }))
-app.get('/api/donations/:reference', asyncRoute(async (req, res) => {
-  const donation = await prisma.donation.findUnique({ where: { referenceCode: routeParam(req, 'reference') }, select: { referenceCode: true, amount: true, paymentMethod: true, isAnonymous: true, status: true, createdAt: true, fund: true } })
+app.get('/api/donations/:reference', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+}), asyncRoute(async (req, res) => {
+  const donation = await prisma.donation.findUnique({ where: { referenceCode: routeParam(req, 'reference') }, select: { referenceCode: true, amount: true, paymentMethod: true, isAnonymous: true, status: true, wantsReceipt: true, receiptEmailSentAt: true, receiptEmailSendingAt: true, createdAt: true, fund: true } })
   if (!donation) return res.status(404).json({ error: 'Acknowledgment not found.' })
-  res.json({ donation })
+  if (['COMPLETED', 'VERIFIED'].includes(donation.status) && donation.wantsReceipt && !donation.receiptEmailSentAt) {
+    await sendDonationAcknowledgment(donation.referenceCode)
+  }
+  const receiptEmail = await prisma.donation.findUniqueOrThrow({
+    where: { referenceCode: donation.referenceCode },
+    select: { receiptEmailSentAt: true, receiptEmailSendingAt: true },
+  })
+  res.json({
+    donation: {
+      referenceCode: donation.referenceCode,
+      amount: donation.amount,
+      paymentMethod: donation.paymentMethod,
+      isAnonymous: donation.isAnonymous,
+      status: donation.status,
+      wantsReceipt: donation.wantsReceipt,
+      createdAt: donation.createdAt,
+      fund: donation.fund,
+      receiptEmailSent: Boolean(receiptEmail.receiptEmailSentAt),
+      receiptEmailSending: Boolean(receiptEmail.receiptEmailSendingAt),
+    },
+  })
 }))
 
 const contactSchema = z.object({ name: z.string().trim().min(2).max(100), email: z.email(), subject: z.string().trim().min(3).max(160), category: z.enum(['DONATION', 'DISCERNER', 'GENERAL']).default('GENERAL'), message: z.string().trim().min(10).max(5000) })
@@ -1182,10 +1362,67 @@ app.get('/api/updates', asyncRoute(async (_req, res) => {
   const updates = await prisma.update.findMany({ where: { publishedAt: { lte: new Date() } }, orderBy: { publishedAt: 'desc' } })
   res.json({ updates })
 }))
+app.get('/api/carmelights/most-viewed', asyncRoute(async (_req, res) => {
+  const content = await prisma.pageContent.findUnique({ where: { pageKey: 'SITE_MANAGED' }, select: { blocks: true } })
+  const blocks = content?.blocks
+  const entries = blocks && typeof blocks === 'object' && !Array.isArray(blocks) && Array.isArray(blocks.carmelights)
+    ? blocks.carmelights.filter((entry): entry is Prisma.JsonObject => Boolean(entry && typeof entry === 'object' && !Array.isArray(entry) && typeof entry.id === 'string'))
+    : []
+  const readingIds = entries.map((entry) => entry.id as string)
+  if (!readingIds.length) return res.json({ windowDays: 30, teachings: [] })
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const viewCounts = await prisma.contentInteraction.groupBy({
+    by: ['readingId'],
+    where: { readingId: { in: readingIds }, eventType: 'VIEW', createdAt: { gte: since } },
+    _count: { _all: true },
+  })
+  const viewsById = new Map(viewCounts.map(({ readingId, _count }) => [readingId, _count._all]))
+  const teachings = entries.map((entry) => ({
+    id: entry.id as string,
+    title: typeof entry.title === 'string' ? entry.title : 'Untitled teaching',
+    author: typeof entry.author === 'string' ? entry.author : '',
+    body: typeof entry.body === 'string' ? entry.body : '',
+    image: typeof entry.image === 'string' ? entry.image : '',
+    category: typeof entry.category === 'string' ? entry.category : 'Prayer',
+    views: viewsById.get(entry.id as string) || 0,
+  }))
+  teachings.sort((left, right) => right.views - left.views)
+  res.json({ windowDays: 30, teachings: teachings.slice(0, 5) })
+}))
 app.get('/api/content/:pageKey', asyncRoute(async (req, res) => {
-  const content = await prisma.pageContent.findUnique({ where: { pageKey: routeParam(req, 'pageKey').toUpperCase() } })
+  const pageKey = routeParam(req, 'pageKey').toUpperCase()
+  const cacheable = pageKey === 'HOME_HERO_IMAGE' || pageKey === 'HOME_SECTION_IMAGES'
+  const cached = cacheable ? homepageContentCache.get(pageKey) : undefined
+  if (cached && cached.expiresAt > Date.now()) {
+    if (!cached.content) return res.status(404).json({ error: 'Page content not found.' })
+    return res.json({ content: homepageContentForResponse(pageKey, cached.content) })
+  }
+  if (cached) homepageContentCache.delete(pageKey)
+  const content = pageKey === 'SITE_MANAGED'
+    ? (await prisma.$queryRaw<Array<{ id: string; pageKey: string; blocks: Prisma.JsonValue; updatedAt: Date }>>(Prisma.sql`
+        SELECT
+          "id",
+          "pageKey",
+          CASE
+            WHEN jsonb_typeof("blocks"->'homeHeroImage') = 'string'
+              AND length("blocks"->>'homeHeroImage') > ${homepageInlineImageMaxChars}
+            THEN jsonb_set(
+              "blocks",
+              ARRAY['homeHeroImage']::text[],
+              to_jsonb(${homepageHeroImageFallback}::text),
+              true
+            )
+            ELSE "blocks"
+          END AS "blocks",
+          "updatedAt"
+        FROM "PageContent"
+        WHERE "pageKey" = ${pageKey}
+        LIMIT 1
+      `))[0] ?? null
+    : await prisma.pageContent.findUnique({ where: { pageKey } })
+  if (cacheable && content) homepageContentCache.set(pageKey, { content, expiresAt: Date.now() + homepageContentCacheTtlMs })
   if (!content) return res.status(404).json({ error: 'Page content not found.' })
-  res.json({ content })
+  res.json({ content: homepageContentForResponse(pageKey, content) })
 }))
 const contentInteractionSchema = z.object({
   readingId: z.string().trim().min(1).max(100),
@@ -1209,13 +1446,14 @@ app.post('/api/content/interactions', asyncRoute(async (req, res) => {
   const sessionToken = req.cookies?.carmel_session as string | undefined
   if (sessionToken) {
     try {
-      const claims = jwt.verify(sessionToken, jwtSecret) as AuthRequest['auth']
-      if (claims?.id && claims.role === 'USER' && !claims.demo) {
+      const verified = jwt.verify(sessionToken, jwtSecret)
+      const id = typeof verified === 'string' ? null : verified.id
+      if (typeof id === 'string') {
         const user = await prisma.user.findUnique({
-          where: { id: claims.id },
-          select: { id: true, isActive: true, privacyConsentAt: true },
+          where: { id },
+          select: { id: true, role: true, isActive: true, privacyConsentAt: true },
         })
-        if (user?.isActive && user.privacyConsentAt) userId = user.id
+        if (user?.isActive && user.role === 'USER' && user.privacyConsentAt) userId = user.id
       }
     } catch (error) {
       if (!(error instanceof jwt.JsonWebTokenError)) throw error
@@ -1228,7 +1466,7 @@ app.post('/api/content/interactions', asyncRoute(async (req, res) => {
     visitorKey = randomUUID()
     res.cookie('carmel_analytics_visitor', visitorKey, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       sameSite: 'strict',
       path: '/api/content/interactions',
       maxAge: 24 * 60 * 60 * 1000,
@@ -1267,8 +1505,6 @@ const managedMonasterySchema = z.object({
   name: z.string().trim().min(1).max(200),
   city: z.string().trim().min(1).max(100),
   description: z.string().max(5000),
-  projectTitle: z.string().max(200),
-  projectDetails: z.string().max(5000),
   image: z.string().max(3_000_000),
 })
 const managedArticleSchema = z.object({
@@ -1277,13 +1513,60 @@ const managedArticleSchema = z.object({
   author: z.string().max(200),
   body: z.string().max(100_000),
   image: z.string().max(3_000_000),
+  category: z.string().max(100).optional(),
 })
+const managedContentCollectionSchema = z.enum(['monasteries', 'carmelife', 'carmelights'])
+const managedRecordIdSchema = z.string().min(1).max(100)
 const managedSiteContentSchema = z.object({
   homeHeroImage: z.string().max(3_000_000),
   monasteries: z.array(managedMonasterySchema).max(100),
   carmelife: z.array(managedArticleSchema).max(200),
   carmelights: z.array(managedArticleSchema).max(200),
+  contactDetails: z.object({
+    phone: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(320),
+    facebookLabel: z.string().trim().min(1).max(200),
+    facebookUrl: z.string().url().max(500).refine((value) => {
+      const protocol = new URL(value).protocol
+      return protocol === 'http:' || protocol === 'https:'
+    }),
+    location: z.string().trim().min(1).max(1000),
+    heroImage: z.string().min(1).max(3_000_000),
+  }),
+  aboutImages: z.object({
+    spirituality: z.string().max(3_000_000),
+    assembly: z.string().max(3_000_000),
+    officers: z.string().max(3_000_000),
+    purposeOne: z.string().max(3_000_000),
+    purposeTwo: z.string().max(3_000_000),
+    purposeThree: z.string().max(3_000_000),
+    purposeFour: z.string().max(3_000_000),
+    quote: z.string().max(3_000_000),
+  }),
 })
+function isSupportedUpdateVideoSource(value: string) {
+  if (/^data:video\/(?:mp4|webm|ogg);base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) return true
+  let url: URL
+  try { url = new URL(value) } catch { return false }
+  if (url.protocol !== 'https:') return false
+  const host = url.hostname.toLowerCase()
+  if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com', 'youtu.be'].includes(host)) {
+    const segments = url.pathname.split('/').filter(Boolean)
+    const id = host === 'youtu.be'
+      ? segments[0]
+      : url.pathname === '/watch'
+        ? url.searchParams.get('v')
+        : (segments[0] === 'embed' || segments[0] === 'shorts') ? segments[1] : null
+    return Boolean(id && /^[A-Za-z0-9_-]{11}$/.test(id))
+  }
+  if (['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(host)) {
+    const segments = url.pathname.split('/').filter(Boolean)
+    const id = host === 'player.vimeo.com' ? (segments[0] === 'video' ? segments[1] : null) : segments[0]
+    return Boolean(id && /^\d+$/.test(id))
+  }
+  return false
+}
+const managedUpdateVideoSchema = z.string().max(3_000_000).refine(isSupportedUpdateVideoSource, 'Provide a supported MP4, WebM, OGG, YouTube, or Vimeo video.')
 const managedUpdatesSchema = z.array(z.object({
   id: z.string().min(1).max(100),
   title: z.string().trim().min(1).max(200),
@@ -1291,12 +1574,139 @@ const managedUpdatesSchema = z.array(z.object({
   category: z.string().min(1).max(100),
   image: z.string().max(3_000_000),
   body: z.string().max(100_000),
+  video: managedUpdateVideoSchema.optional(),
+  featured: z.boolean().optional(),
 })).max(500)
+const managedUpdateSchema = z.object({
+  id: z.string().min(1).max(100),
+  title: z.string().trim().min(1).max(200),
+  date: z.string().min(1).max(100),
+  category: z.string().min(1).max(100),
+  image: z.string().max(3_000_000),
+  body: z.string().max(100_000),
+  video: managedUpdateVideoSchema.optional(),
+  featured: z.boolean().optional(),
+})
+async function persistManagedContentRecord(
+  pageKey: 'SITE_MANAGED' | 'SITE_UPDATES',
+  collection: string,
+  id: string,
+  record: unknown | null,
+  actorId: string,
+) {
+  const recordJson = record === null ? null : JSON.stringify(record)
+  const incomingRecords = recordJson === null
+    ? Prisma.sql`'[]'::jsonb`
+    : Prisma.sql`jsonb_build_array(${recordJson}::jsonb)`
+  const currentRecords = pageKey === 'SITE_UPDATES'
+    ? Prisma.sql`CASE WHEN jsonb_typeof("PageContent"."blocks") = 'array' THEN "PageContent"."blocks" ELSE '[]'::jsonb END`
+    : Prisma.sql`CASE WHEN jsonb_typeof("PageContent"."blocks"->${collection}) = 'array' THEN "PageContent"."blocks"->${collection} ELSE '[]'::jsonb END`
+  const matchingRecord = Prisma.sql`EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(${currentRecords}) AS existing(entry)
+    WHERE entry->>'id' = ${id}
+  )`
+  const nextRecords = recordJson === null
+    ? Prisma.sql`COALESCE((
+        SELECT jsonb_agg(entry ORDER BY position)
+        FROM jsonb_array_elements(${currentRecords}) WITH ORDINALITY AS existing(entry, position)
+        WHERE entry->>'id' <> ${id}
+      ), '[]'::jsonb)`
+    : Prisma.sql`COALESCE((
+        SELECT jsonb_agg(
+          CASE WHEN entry->>'id' = ${id} THEN ${recordJson}::jsonb ELSE entry END
+          ORDER BY position
+        )
+        FROM jsonb_array_elements(${currentRecords}) WITH ORDINALITY AS existing(entry, position)
+      ), '[]'::jsonb) || CASE WHEN ${matchingRecord} THEN '[]'::jsonb ELSE ${incomingRecords} END`
+  const updatedBlocks = pageKey === 'SITE_UPDATES'
+    ? nextRecords
+    : Prisma.sql`jsonb_set(
+        CASE
+          WHEN jsonb_typeof(COALESCE("PageContent"."blocks", '{}'::jsonb)->'homeHeroImage') = 'string'
+            AND length(COALESCE("PageContent"."blocks", '{}'::jsonb)->>'homeHeroImage') > ${homepageInlineImageMaxChars}
+          THEN jsonb_set(
+            COALESCE("PageContent"."blocks", '{}'::jsonb),
+            ARRAY['homeHeroImage']::text[],
+            to_jsonb(${homepageHeroImageFallback}::text),
+            true
+          )
+          ELSE COALESCE("PageContent"."blocks", '{}'::jsonb)
+        END,
+        ARRAY[${collection}]::text[],
+        ${nextRecords},
+        true
+      )`
+  const initialBlocks = pageKey === 'SITE_UPDATES'
+    ? incomingRecords
+    : Prisma.sql`jsonb_build_object(
+        'homeHeroImage', ${homepageHeroImageFallback},
+        ${collection}, ${incomingRecords}
+      )`
+  await prisma.$executeRaw(Prisma.sql`
+    WITH changed AS (
+      INSERT INTO "PageContent" ("id", "pageKey", "blocks", "updatedAt")
+      VALUES (${randomUUID()}, ${pageKey}, ${initialBlocks}, NOW())
+      ON CONFLICT ("pageKey") DO UPDATE
+      SET "blocks" = ${updatedBlocks}, "updatedAt" = NOW()
+      RETURNING "id"
+    )
+    INSERT INTO "AuditLog" ("id", "userId", "action", "entity", "entityId", "meta", "createdAt")
+    SELECT
+      ${randomUUID()},
+      ${actorId},
+      'UPDATE_CONTENT',
+      'PageContent',
+      changed."id",
+      jsonb_build_object(
+        'pageKey', ${pageKey},
+        'collection', ${collection},
+        'operation', ${recordJson === null ? 'DELETE' : 'UPSERT'}
+      ),
+      NOW()
+    FROM changed
+  `)
+}
 const homeHeroImageSchema = z.object({ image: z.string().trim().min(1).max(3_000_000) })
 const homeSectionImageSchema = z.object({
   section: z.enum(['about', 'carmelife', 'carmelights', 'updates', 'monasteries', 'donations', 'contact']),
   image: z.string().trim().min(1).max(3_000_000),
 })
+app.put('/api/admin/content/SITE_MANAGED/:collection/:id', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  const parsedCollection = managedContentCollectionSchema.safeParse(routeParam(req, 'collection'))
+  const parsedId = managedRecordIdSchema.safeParse(routeParam(req, 'id'))
+  if (!parsedCollection.success || !parsedId.success) return res.status(400).json({ error: 'Choose a valid content record.' })
+  const schema = parsedCollection.data === 'monasteries' ? managedMonasterySchema : managedArticleSchema
+  const parsedRecord = validate(schema, req.body)
+  if (parsedRecord.error || parsedRecord.data!.id !== parsedId.data) return res.status(400).json({ error: 'Please check the content record before saving.' })
+  await persistManagedContentRecord('SITE_MANAGED', parsedCollection.data, parsedId.data, parsedRecord.data, req.auth!.id)
+  res.status(204).end()
+}))
+app.delete('/api/admin/content/SITE_MANAGED/:collection/:id', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
+  const parsedCollection = managedContentCollectionSchema.safeParse(routeParam(req, 'collection'))
+  const parsedId = managedRecordIdSchema.safeParse(routeParam(req, 'id'))
+  if (!parsedCollection.success || !parsedId.success) return res.status(400).json({ error: 'Choose a valid content record.' })
+  await persistManagedContentRecord('SITE_MANAGED', parsedCollection.data, parsedId.data, null, req.auth!.id)
+  res.status(204).end()
+}))
+app.put('/api/admin/content/SITE_UPDATES/:id', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageUpdates')) return
+  const parsedId = managedRecordIdSchema.safeParse(routeParam(req, 'id'))
+  if (!parsedId.success) return res.status(400).json({ error: 'Choose a valid update.' })
+  const parsedRecord = validate(managedUpdateSchema, req.body)
+  if (parsedRecord.error || parsedRecord.data!.id !== parsedId.data) return res.status(400).json({ error: 'Please check the update before saving.' })
+  await persistManagedContentRecord('SITE_UPDATES', 'updates', parsedId.data, parsedRecord.data, req.auth!.id)
+  res.status(204).end()
+}))
+app.delete('/api/admin/content/SITE_UPDATES/:id', authenticate, asyncRoute(async (req, res) => {
+  if (!await authorizeStaffPermission(req, res, 'canManageUpdates')) return
+  const parsedId = managedRecordIdSchema.safeParse(routeParam(req, 'id'))
+  if (!parsedId.success) return res.status(400).json({ error: 'Choose a valid update.' })
+  await persistManagedContentRecord('SITE_UPDATES', 'updates', parsedId.data, null, req.auth!.id)
+  res.status(204).end()
+}))
 app.put('/api/admin/content/home-hero-image', authenticate, asyncRoute(async (req, res) => {
   if (!await authorizeStaffPermission(req, res, 'canManageDetails')) return
   const parsed = validate(homeHeroImageSchema, req.body)
@@ -1306,6 +1716,7 @@ app.put('/api/admin/content/home-hero-image', authenticate, asyncRoute(async (re
     update: { blocks: { image: parsed.data!.image } },
     create: { pageKey: 'HOME_HERO_IMAGE', blocks: { image: parsed.data!.image } },
   })
+  homepageContentCache.set('HOME_HERO_IMAGE', { content, expiresAt: Date.now() + homepageContentCacheTtlMs })
   await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey: 'HOME_HERO_IMAGE' })
   res.json({ content })
 }))
@@ -1322,6 +1733,7 @@ app.put('/api/admin/content/home-section-image', authenticate, asyncRoute(async 
     update: { blocks: blocks as Prisma.InputJsonValue },
     create: { pageKey, blocks: blocks as Prisma.InputJsonValue },
   })
+  homepageContentCache.set(pageKey, { content, expiresAt: Date.now() + homepageContentCacheTtlMs })
   await audit(req.auth!.id, 'UPDATE_CONTENT', 'PageContent', content.id, { pageKey, section: parsed.data!.section })
   res.json({ content })
 }))
@@ -1689,7 +2101,7 @@ app.post('/api/admin/donations', authenticate, allowRoles('ADMIN'), asyncRoute(a
   if (!input.isAnonymous && !input.donorName) return res.status(400).json({ error: 'Enter the donor name or mark this donation as anonymous.' })
   const donation = await prisma.donation.create({
     data: {
-      referenceCode: `CARMEL-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
+      referenceCode: `CARMEL-${new Date().getFullYear()}-${randomBytes(16).toString('hex').toUpperCase()}`,
       amount: new Prisma.Decimal(input.amount),
       type: input.type,
       fund: input.fund,
@@ -1723,26 +2135,20 @@ const managedUserSelect = {
   discernment: { select: { stage: true, monastery: true, updatedAt: true } },
 } as const
 async function authorizeManagedAccounts(req: AuthRequest, res: Response, allowFormator: boolean) {
-  if (!req.auth || (req.auth.demo && !demoAuthEnabled)) {
+  if (!req.auth) {
     res.status(403).json({ error: 'A database-backed staff account is required to manage accounts.' })
     return null
   }
-  if (req.auth.demo) {
-    if (allowFormator && req.auth.role === 'FORMATOR' && req.auth.canManageUsers) {
-      return { id: req.auth.id, role: req.auth.role, isActive: true, canManageUsers: true }
-    }
+  if (req.auth.role !== 'ADMIN' && !(allowFormator && req.auth.role === 'FORMATOR' && req.auth.canManageUsers)) {
     res.status(403).json({ error: 'You do not have access to manage these accounts.' })
     return null
   }
-  const user = await prisma.user.findUnique({
-    where: { id: req.auth.id },
-    select: { id: true, role: true, isActive: true, canManageUsers: true },
-  })
-  if (!user?.isActive || (user.role !== 'ADMIN' && !(allowFormator && user.role === 'FORMATOR' && user.canManageUsers))) {
-    res.status(403).json({ error: 'You do not have access to manage these accounts.' })
-    return null
+  return {
+    id: req.auth.id,
+    role: req.auth.role,
+    isActive: true,
+    canManageUsers: req.auth.canManageUsers,
   }
-  return user
 }
 app.get('/api/admin/users', authenticate, asyncRoute(async (req, res) => {
   const actor = await authorizeManagedAccounts(req, res, true)
@@ -1850,8 +2256,33 @@ app.get('/api/admin/discernment', authenticate, allowRoles('ADMIN'), asyncRoute(
   if (members.length) {
     await prisma.discernment.createMany({ data: members.map(({ id }) => ({ userId: id })), skipDuplicates: true })
   }
-  const discerners = await prisma.discernment.findMany({ where: { user: { isActive: true } }, orderBy: { updatedAt: 'desc' }, select: { id: true, userId: true, stage: true, monastery: true, updatedAt: true, user: { select: { name: true, email: true } } } })
-  res.json({ discerners })
+  const [criteria, discerners] = await Promise.all([
+    getDiscernmentCriteria(),
+    prisma.discernment.findMany({
+      where: { user: { isActive: true } },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true, userId: true, stage: true, monastery: true, updatedAt: true,
+        user: { select: { name: true, email: true, discernmentTrackingConsentAt: true } },
+      },
+    }),
+  ])
+  const withMetrics = await Promise.all(discerners.map(async (record) => {
+    const trackingEnabled = Boolean(record.user.discernmentTrackingConsentAt)
+    const metrics = trackingEnabled
+      ? await getDiscernmentMetrics(record.userId, criteria, record.user.discernmentTrackingConsentAt!)
+      : null
+    return {
+      userId: record.userId,
+      stage: record.stage,
+      monastery: record.monastery,
+      updatedAt: record.updatedAt,
+      user: { name: record.user.name, email: record.user.email },
+      trackingEnabled,
+      metrics,
+    }
+  }))
+  res.json({ discerners: withMetrics, criteria })
 }))
 const discernmentStageSchema = z.object({ stage: z.enum(discernmentStages) })
 app.patch('/api/admin/discernment/:userId/stage', authenticate, allowRoles('ADMIN'), asyncRoute(async (req, res) => {
@@ -1883,7 +2314,10 @@ app.patch('/api/admin/donations/:id/status', authenticate, allowRoles('ADMIN', '
     donation.id,
     { from: previous.status, to: donation.status },
   )
-  res.json({ donation })
+  const receiptEmailSent = ['COMPLETED', 'VERIFIED'].includes(donation.status)
+    ? await sendDonationAcknowledgment(donation.referenceCode)
+    : false
+  res.json({ donation: { ...donation, receiptEmailSent } })
 }))
 app.get('/api/admin/conversations', authenticate, allowRoles('ADMIN', 'FORMATOR'), asyncRoute(async (_req, res) => {
   const conversations = await prisma.conversation.findMany({
@@ -2041,7 +2475,35 @@ app.get('/api/admin/audit', authenticate, allowRoles('ADMIN', 'FORMATOR'), async
   res.json({ logs })
 }))
 
+const moduleDirectory = dirname(fileURLToPath(import.meta.url))
+const clientBuildDirectoryCandidates = [
+  resolve(moduleDirectory, '../../../client/dist'),
+  resolve(moduleDirectory, '../../client/dist'),
+  resolve(process.cwd(), 'client/dist'),
+  resolve(process.cwd(), '../client/dist'),
+]
+const clientBuildDirectory = clientBuildDirectoryCandidates.find((directory) => existsSync(resolve(directory, 'index.html')))
+if (!clientBuildDirectory) {
+  throw new Error('Client build not found. Build client/dist and run the server from the application deployment root.')
+}
+app.use(express.static(clientBuildDirectory))
+app.get('*', (req, res, next) => {
+  if (req.path === '/api' || req.path.startsWith('/api/')) return next()
+  res.sendFile(resolve(clientBuildDirectory, 'index.html'), (error) => {
+    if (error) next(error)
+  })
+})
+
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (
+    error instanceof SyntaxError
+    && 'status' in error
+    && error.status === 400
+    && 'type' in error
+    && error.type === 'entity.parse.failed'
+  ) {
+    return res.status(400).json({ error: 'Request body must contain valid JSON.' })
+  }
   console.error(error)
   res.status(500).json({ error: 'The request could not be completed. Please try again.' })
 })

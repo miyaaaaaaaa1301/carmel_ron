@@ -563,6 +563,144 @@
     min-height: 330px;
     padding: 42px 22px;
   }
+}
+
+.spirituality-reference-page {
+  background: #fff;
+}
+
+.spirituality-principle {
+  min-height: 500px;
+  padding: 70px max(32px, calc((100% - 1120px) / 2));
+  display: grid;
+  grid-template-areas: "copy image";
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr);
+  align-items: center;
+  gap: 8%;
+}
+
+.spirituality-principle-copy {
+  grid-area: copy;
+}
+
+.spirituality-principle-copy h2 {
+  margin: 8px 0 14px;
+  color: #6b3f1e;
+  font: 800 clamp(30px, 3vw, 38px)/1.15 var(--heading);
+}
+
+.spirituality-principle-rule {
+  width: 60px;
+  height: 2px;
+  margin: 0 0 24px;
+  display: block;
+  background: #c99a60;
+}
+
+.spirituality-principle-copy h3 {
+  margin: 0 0 12px;
+  color: #523a29;
+  font-size: 19px;
+  line-height: 1.45;
+}
+
+.spirituality-principle-copy p {
+  margin: 0 0 14px;
+  color: #65584e;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+.spirituality-principle-copy small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #5b4534;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.spirituality-principle-copy small::before {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #c99a60;
+  content: "";
+}
+
+.spirituality-principle > img {
+  width: min(100%, 390px);
+  aspect-ratio: 1;
+  grid-area: image;
+  justify-self: center;
+  object-fit: cover;
+  border-radius: 0 44px 0 0;
+}
+
+.spirituality-principle-marian {
+  grid-template-areas: "image copy";
+  grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr);
+  background: #3b2a1e;
+}
+
+.spirituality-principle-marian > img,
+.spirituality-principle-biblical > img {
+  border-radius: 44px 0 0 0;
+}
+
+.spirituality-principle-marian .spirituality-principle-copy h2,
+.spirituality-principle-marian .spirituality-principle-copy h3,
+.spirituality-principle-marian .spirituality-principle-copy small {
+  color: #f3e7d8;
+}
+
+.spirituality-principle-marian .spirituality-principle-copy p {
+  color: #d7c6b5;
+}
+
+.spirituality-principle-marian .spirituality-principle-rule {
+  background: #d6c6b6;
+}
+
+.spirituality-principle-marian .spirituality-principle-copy small::before {
+  background: #d6c6b6;
+}
+
+.spirituality-principle-biblical {
+  grid-template-areas: "image copy";
+  grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr);
+}
+
+.spirituality-principle-ecclesial {
+  background: #f1e6d6;
+}
+
+@media (max-width: 760px) {
+  .spirituality-principle,
+  .spirituality-principle-marian,
+  .spirituality-principle-biblical {
+    min-height: 0;
+    padding: 48px 24px;
+    grid-template-areas:
+      "copy"
+      "image";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .spirituality-principle-marian,
+  .spirituality-principle-biblical {
+    grid-template-areas:
+      "image"
+      "copy";
+  }
+
+  .spirituality-principle > img {
+    width: min(100%, 360px);
+  }
 
   .about-reference-quote-content blockquote {
     font-size: 26px;

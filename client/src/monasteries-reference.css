@@ -31,8 +31,6 @@
 .monastery-card-content dt{color:#a2672d}
 .monastery-card-content dd{min-width:0;margin:0;overflow-wrap:anywhere}
 .monastery-card-content dd a:hover{color:#704214;text-decoration:underline}
-.monastery-project{padding-top:7px;border-top:1px solid #e8dfd4;font-size:9px}
-.monastery-project p{margin:3px 0 0;color:#6f655c}
 .card-actions{display:flex;align-items:center;gap:8px;width:100%;margin-top:auto;padding-top:6px}
 .btn-facebook{display:inline-flex;align-items:center;gap:5px;color:#315e96;font-size:9px;font-weight:600;white-space:nowrap}
 .facebook-mark{width:12px;height:12px;border-radius:2px;background:#2875cf;color:#fff;font-family:Arial,sans-serif;font-size:10px;font-weight:700;line-height:14px;text-align:center}

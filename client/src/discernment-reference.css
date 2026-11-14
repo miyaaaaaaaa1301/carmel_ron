@@ -9,8 +9,7 @@
 .discernment-guide-hero,
 .discernment-guide-content,
 .discernment-vocation-requirements,
-.discernment-guide-practices,
-.discernment-guide-note {
+.discernment-guide-practices {
   width: min(1120px, calc(100% - 56px));
   margin-inline: auto;
 }
@@ -61,14 +60,12 @@
 }
 
 .discernment-guide-heading h2,
-.discernment-guide-practices h2,
-.discernment-guide-note h2 {
+.discernment-guide-practices h2 {
   margin: 12px 0;
   font-size: clamp(29px, 4vw, 42px);
 }
 
-.discernment-guide-heading > p,
-.discernment-guide-note p {
+.discernment-guide-heading > p {
   color: var(--guide-muted);
   font-size: 16px;
   line-height: 1.75;
@@ -320,36 +317,6 @@
   font-size: 10px;
 }
 
-.discernment-guide-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 36px;
-  margin-bottom: 80px;
-  padding: 34px;
-  border: 1px solid #e8dfd4;
-  border-radius: 12px;
-  background: #f8f3ed;
-}
-
-.discernment-guide-note > div {
-  max-width: 700px;
-}
-
-.discernment-guide-note h2 {
-  font-size: clamp(25px, 3vw, 34px);
-}
-
-.discernment-guide-note p {
-  margin: 0;
-}
-
-.discernment-guide-note .button {
-  flex: 0 0 auto;
-  min-height: 46px;
-  font-size: 14px;
-}
-
 .discernment-guide-cta {
   margin-top: 20px;
 }
@@ -388,44 +355,6 @@
   min-height: 46px;
   gap: 9px;
   font-size: 14px;
-}
-
-.discernment-guide-milestones {
-  margin-top: 18px;
-  padding: 14px 15px;
-  border-radius: 8px;
-  background: #f8f3ed;
-}
-
-.discernment-guide-reading-note {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border-left: 2px solid var(--guide-gold);
-  background: #f8f3ed;
-  font-size: 13px !important;
-}
-
-.discernment-guide-milestones > b {
-  color: var(--guide-ink);
-  font-size: 13px;
-}
-
-.discernment-guide-milestones > p {
-  margin-top: 6px;
-  font-size: 13px;
-}
-
-.discernment-guide-milestones ul {
-  gap: 5px;
-  margin-top: 8px;
-  padding-left: 16px;
-  list-style: disc;
-}
-
-.discernment-guide-milestones li {
-  display: list-item;
-  color: var(--guide-muted);
-  font-size: 12px;
 }
 
 .discernment-milestones,
@@ -576,8 +505,7 @@
   .discernment-guide-hero,
   .discernment-guide-content,
   .discernment-vocation-requirements,
-  .discernment-guide-practices,
-  .discernment-guide-note {
+  .discernment-guide-practices {
     width: calc(100% - 36px);
   }
 
@@ -669,14 +597,6 @@
     gap: 3px;
   }
 
-  .discernment-guide-note {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 22px;
-    margin-bottom: 50px;
-    padding: 23px 19px;
-  }
-
   .discernment-contact {
     align-items: stretch;
     flex-direction: column;
@@ -692,7 +612,6 @@
   .discernment-guide-content,
   .discernment-vocation-requirements,
   .discernment-guide-practices,
-  .discernment-guide-note,
   .discernment-guide-practical {
     width: calc(100% - 32px);
   }
@@ -751,15 +670,9 @@
     letter-spacing: -0.02em;
   }
 
-  .discernment-guide-heading > p,
-  .discernment-guide-note p {
+  .discernment-guide-heading > p {
     font-size: 14px;
     line-height: 1.65;
-  }
-
-  .discernment-guide-reading-note {
-    padding: 10px 12px;
-    font-size: 12px !important;
   }
 
   .discernment-guide-stage-list {
@@ -803,23 +716,6 @@
   .discernment-guide-stage ul {
     gap: 8px;
     margin-top: 12px;
-  }
-
-  .discernment-guide-milestones {
-    margin-top: 13px;
-    padding: 11px 12px;
-    border: 1px solid #eee6dc;
-  }
-
-  .discernment-guide-milestones > b {
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .discernment-guide-milestones > p,
-  .discernment-guide-milestones li {
-    font-size: 12px;
-    line-height: 1.5;
   }
 
   .discernment-requirements-box {
@@ -933,23 +829,140 @@
     font-size: 12px;
   }
 
-  .discernment-guide-note {
-    align-items: stretch;
-    gap: 15px;
-    margin-bottom: 38px;
-    padding: 21px 17px;
-    border-radius: 9px;
+}
+
+.discerner-columns-heading {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.05fr) minmax(130px, .75fr) minmax(220px, 1.4fr) minmax(130px, .75fr);
+  gap: 18px;
+  padding: 0 17px 7px;
+  color: #817569;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.discerner-row {
+  grid-template-columns: minmax(150px, 1.05fr) minmax(130px, .75fr) minmax(220px, 1.4fr) minmax(130px, .75fr);
+}
+
+.discerner-analytics {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  color: #817569;
+  font-size: 9px;
+}
+
+.discerner-analytics > p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.discerner-analytics > small {
+  color: #96897e;
+  font-size: 9px;
+}
+
+.discerner-analytics-row {
+  display: grid;
+  gap: 4px;
+}
+
+.discerner-analytics-row > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.discerner-analytics-row > div span {
+  overflow-wrap: anywhere;
+}
+
+.discerner-analytics-row > div b {
+  flex: none;
+  color: #53473d;
+  font-size: 9px;
+}
+
+.discerner-progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #eee8e0;
+}
+
+.discerner-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #6d8465;
+}
+
+@media (max-width: 1050px) {
+  .discerner-columns-heading,
+  .discerner-row {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, .8fr);
   }
 
-  .discernment-guide-note h2 {
-    margin: 8px 0;
-    font-size: 23px;
-    line-height: 1.2;
+  .discerner-columns-heading span:nth-child(3),
+  .discerner-row .discerner-analytics {
+    grid-column: 1 / -1;
   }
 
-  .discernment-guide-note .button {
-    justify-content: center;
-    min-height: 44px;
-    font-size: 13px;
+  .discerner-columns-heading span:nth-child(4) {
+    display: none;
+  }
+
+  .discerner-stage-edit {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .discerner-columns-heading {
+    display: none;
+  }
+
+  .discerner-row {
+    grid-template-columns: 1fr;
+  }
+
+  .discerner-row .discerner-analytics,
+  .discerner-stage-edit {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+.discerner-admin-tabs {
+  max-width: 1280px;
+  margin: 0 auto 18px;
+  display: flex;
+  gap: 5px;
+  border-bottom: 1px solid #e8dfd4;
+}
+
+.discerner-admin-tabs a {
+  padding: 10px 14px;
+  border-bottom: 2px solid transparent;
+  color: #786d63;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.discerner-admin-tabs a:hover,
+.discerner-admin-tabs a.active {
+  border-bottom-color: var(--brown-700);
+  color: var(--brown-900);
+}
+
+@media (max-width: 560px) {
+  .discerner-admin-tabs a {
+    flex: 1;
+    padding-inline: 8px;
+    text-align: center;
   }
 }

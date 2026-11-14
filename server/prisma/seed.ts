@@ -18,9 +18,14 @@ const faqs = [
 ]
 
 async function main() {
-  const useDevelopmentAdmin = process.env.NODE_ENV !== 'production' && process.env.DEMO_AUTH_ENABLED === 'true'
-  const email = (useDevelopmentAdmin ? process.env.DEMO_ADMIN_EMAIL : process.env.ADMIN_EMAIL)?.toLowerCase()
-  const password = useDevelopmentAdmin ? process.env.DEMO_ADMIN_PASSWORD : process.env.ADMIN_PASSWORD
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  const password = process.env.ADMIN_PASSWORD
+  if ((email && !password) || (!email && password)) {
+    throw new Error('Set both ADMIN_EMAIL and ADMIN_PASSWORD to seed the administrator account.')
+  }
+  if (password && password.length < 16) {
+    throw new Error('ADMIN_PASSWORD must contain at least 16 characters.')
+  }
   if (email && password) {
     const passwordHash = await bcrypt.hash(password, 12)
     await prisma.user.upsert({ where: { email }, update: { name: process.env.ADMIN_NAME || 'Federation Administrator', passwordHash, role: 'ADMIN', isActive: true }, create: { name: process.env.ADMIN_NAME || 'Federation Administrator', email, passwordHash, role: 'ADMIN' } })

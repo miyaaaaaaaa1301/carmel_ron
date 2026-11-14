@@ -33,8 +33,11 @@
 .reference-carousel{display:flex;align-items:center;gap:12px}
 .reference-carousel>button{display:inline-flex;flex:0 0 44px;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid #7042142e;border-radius:50%;background:#ffffffd1;color:#704214;cursor:pointer}
 .reference-cards{display:flex;flex:1;gap:24px;overflow-x:auto;padding:4px 0 18px;scroll-behavior:smooth;scrollbar-width:thin}
-.reference-card{position:relative;display:flex;flex:0 0 248px;height:272px;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:12px;background-position:center;background-size:cover;color:#fff}
+.reference-card{position:relative;display:flex;flex:0 0 248px;height:272px;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:12px;background:#574638;color:#fff}
+.reference-card::before{position:absolute;z-index:1;inset:0;background:linear-gradient(transparent 10%,rgba(20,10,4,.82));content:""}
+.reference-card>img{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover}
 .reference-card>span{position:relative;padding:20px 16px 0;color:#c9a87c;font-size:11px;font-weight:700;letter-spacing:.08em}
+.reference-card>span,.reference-card>div{z-index:2}
 .reference-card>div{position:relative;padding:0 16px 20px}
 .reference-card h3{margin:6px 0 8px;color:#fff;font-size:18px}
 .reference-card b{display:flex;align-items:center;gap:5px;color:#c9a87c;font-size:12px}
@@ -42,7 +45,7 @@
 .reference-quote>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .reference-quote>div{position:absolute;right:0;z-index:1;width:50%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 80px;background:linear-gradient(90deg,transparent,#2b2018cc);text-align:center}
 .reference-quote p{color:#fff;font-size:24px;line-height:1.5}
-@media(max-width:768px){.reference-home{width:calc(100% - 32px)}.reference-hero{height:560px}.reference-hero-content{padding:120px 28px}.reference-hero h1{font-size:clamp(42px,14vw,62px)}.reference-actions{flex-direction:column}.reference-ticker{align-items:flex-start;flex-direction:column;gap:14px;padding:20px}.reference-ticker strong{max-width:100%;font-size:13px;white-space:normal}.reference-ticker-window{width:100%}.reference-ticker-track{font-size:13px}.reference-discernment{flex-direction:column;gap:38px;padding:60px 12px}.reference-discernment>img{width:min(100%,500px)}.reference-explore{padding:0 0 60px}.reference-explore-heading{display:block}.reference-explore-heading>p{margin-top:12px}.reference-quote{min-height:520px}.reference-quote>div{position:relative;width:100%;padding:32px 24px;background:#1e0f0acc}}
+@media(max-width:768px){.reference-home{width:calc(100% - 32px)}.reference-hero{height:560px}.reference-hero-content{padding:120px 28px}.reference-hero h1{font-size:clamp(42px,14vw,62px)}.reference-actions{flex-direction:column}.reference-ticker{align-items:flex-start;flex-direction:column;gap:14px;padding:20px}.reference-ticker strong{max-width:100%;font-size:13px;white-space:normal}.reference-ticker-window{width:100%}.reference-ticker-track{font-size:13px}.reference-discernment{flex-direction:column;gap:38px;padding:60px 12px}.reference-discernment>img{width:min(100%,500px)}.reference-explore{padding:0 0 60px}.reference-explore-heading{display:block}.reference-explore-heading>p{margin-top:12px}.reference-quote{min-height:0}.reference-quote>div{position:relative;width:100%;padding:32px 24px;background:#1e0f0acc}}
 @media(min-width:641px) and (max-width:900px){.reference-home{width:calc(100% - 56px)}.reference-hero{height:560px;border-radius:8px}}
 
 @media(max-width:420px){.reference-home{width:calc(100% - 20px)}.reference-hero{height:520px}.reference-hero-content{padding:88px 20px}.reference-hero h1{font-size:clamp(38px,13vw,52px)}.reference-hero-content>p:not(.reference-kicker){font-size:15px}.reference-kicker{font-size:10px}.reference-primary,.reference-secondary{width:100%;padding-inline:16px}.reference-ticker{padding:16px}.reference-discernment{padding-inline:4px}.reference-discernment h2{font-size:30px}.reference-explore-heading h2{font-size:40px}.reference-quote p{font-size:20px}}

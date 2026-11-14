@@ -96,6 +96,18 @@ model User {
   sentMessages Message[] @relation("UserMessages")
   contentInteractions ContentInteraction[]
   discernmentActivities DiscernmentActivity[]
+  passwordResetToken PasswordResetToken?
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model Discernment {
@@ -144,6 +156,8 @@ model Donation {
   donorEmail            String?
   donorPhone            String?
   wantsReceipt          Boolean        @default(false)
+  receiptEmailSentAt    DateTime?
+  receiptEmailSendingAt DateTime?
   paymentReference      String?
   beneficiaryMonasteryId String?
   beneficiaryMonastery  Monastery?     @relation(fields: [beneficiaryMonasteryId], references: [id], onDelete: SetNull)

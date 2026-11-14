@@ -9,9 +9,13 @@
 }
 
 .member-auth-login-page {
-  height: 100svh;
-  min-height: 0;
-  overflow: hidden;
+  height: auto;
+  min-height: 100svh;
+  overflow: auto;
+}
+
+.member-auth-reset-page {
+  min-height: 100svh;
 }
 
 .auth-reference-art {
@@ -203,8 +207,8 @@
 }
 
 .auth-reference-form > label textarea {
-  min-height: 76px;
-  padding: 12px 16px;
+  min-height: 60px;
+  padding: 8px 16px;
   resize: vertical;
 }
 
@@ -295,6 +299,30 @@
   text-decoration: none;
 }
 
+.auth-reference-form .auth-forgot-password-link {
+  display: block;
+  margin: -2px 0 12px;
+  color: #704214;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  text-decoration: none;
+}
+
+.auth-reference-form .auth-forgot-password-link:hover {
+  color: #a9844d;
+}
+
+.auth-reference-form .auth-recovery-message {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #d5e3d2;
+  border-radius: 8px;
+  background: #f1f7ef;
+  color: #345b37;
+  font-size: 14px;
+}
+
 .auth-reference-form .prototype-note {
   margin: 16px 0 0;
   color: #9b8d7e;
@@ -311,6 +339,49 @@
 
 .member-auth-page .auth-reference-form > p:not(.form-error, .prototype-note) {
   margin-bottom: 20px;
+}
+
+.local-demo-card {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #dfd1bd;
+  border-radius: 7px;
+  background: #f3ede3;
+  color: #514235;
+  font-size: 12px;
+}
+
+.local-demo-card > p {
+  margin: 0;
+  color: #6f6257;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.local-demo-card > button {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d5c3ab;
+  border-radius: 5px;
+  background: #fffdfa;
+  color: #37291f;
+  cursor: pointer;
+  text-align: left;
+}
+
+.local-demo-card > button:hover {
+  border-color: #a9844d;
+}
+
+.local-demo-card > button small {
+  color: #6f6257;
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .member-auth-login-page .auth-reference-form {
@@ -425,6 +496,10 @@
     height: auto;
     min-height: 100svh;
     overflow: visible;
+    grid-template-rows: clamp(180px, 30svh, 230px) auto;
+  }
+
+  .member-auth-reset-page {
     grid-template-rows: clamp(180px, 30svh, 230px) auto;
   }
 
